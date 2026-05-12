@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-budgetwise}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-budgetwise}
+      POSTGRES_DB: ${POSTGRES_DB:-budgetwise}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-budgetwise}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-budgetwise}:${POSTGRES_PASSWORD:-budgetwise}@db:5432/${POSTGRES_DB:-budgetwise}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-budgetwise}:${POSTGRES_PASSWORD:-budgetwise}@db:5432/${POSTGRES_DB:-budgetwise}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
