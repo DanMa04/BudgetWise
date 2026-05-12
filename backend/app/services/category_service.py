@@ -20,10 +20,22 @@ DEFAULT_CATEGORIES = [
     {"name": "Travel", "icon": "plane", "color": "#0D9488", "sort_order": 13},
     {"name": "Gifts & Donations", "icon": "gift", "color": "#F59E0B", "sort_order": 14},
     {"name": "Miscellaneous", "icon": "more-horizontal", "color": "#6B7280", "sort_order": 15},
-    {"name": "Salary", "icon": "briefcase", "color": "#059669", "is_income": True, "sort_order": 16},
-    {"name": "Freelance", "icon": "laptop", "color": "#10B981", "is_income": True, "sort_order": 17},
-    {"name": "Investments", "icon": "trending-up", "color": "#14B8A6", "is_income": True, "sort_order": 18},
-    {"name": "Other Income", "icon": "plus-circle", "color": "#22C55E", "is_income": True, "sort_order": 19},
+    {
+        "name": "Salary", "icon": "briefcase", "color": "#059669",
+        "is_income": True, "sort_order": 16,
+    },
+    {
+        "name": "Freelance", "icon": "laptop", "color": "#10B981",
+        "is_income": True, "sort_order": 17,
+    },
+    {
+        "name": "Investments", "icon": "trending-up", "color": "#14B8A6",
+        "is_income": True, "sort_order": 18,
+    },
+    {
+        "name": "Other Income", "icon": "plus-circle", "color": "#22C55E",
+        "is_income": True, "sort_order": 19,
+    },
 ]
 
 
