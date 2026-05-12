@@ -41,6 +41,9 @@ class Transaction(Base):
     notes: Mapped[str | None] = mapped_column(Text)
     is_pending: Mapped[bool] = mapped_column(Boolean, default=False)
     is_recurring: Mapped[bool] = mapped_column(Boolean, default=False)
+    import_job_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("import_jobs.id", ondelete="SET NULL"), nullable=True
+    )
     source: Mapped[str] = mapped_column(String(20), default="manual")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -52,3 +55,6 @@ class Transaction(Base):
     user: Mapped["User"] = relationship(back_populates="transactions")  # noqa: F821
     account: Mapped["Account"] = relationship(back_populates="transactions")  # noqa: F821
     category: Mapped["Category | None"] = relationship()  # noqa: F821
+    import_job: Mapped["ImportJob | None"] = relationship(  # noqa: F821
+        back_populates="transactions"
+    )

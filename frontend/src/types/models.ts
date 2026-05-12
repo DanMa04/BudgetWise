@@ -125,3 +125,50 @@ export interface CreateCategoryData {
   is_income?: boolean;
   sort_order?: number;
 }
+
+// Import types
+
+export interface ImportJob {
+  id: string;
+  user_id: string;
+  account_id: string;
+  filename: string;
+  file_type: string;
+  status: string;
+  column_mapping: Record<string, string> | null;
+  total_rows: number | null;
+  imported_rows: number;
+  skipped_rows: number;
+  error_rows: number;
+  errors: Array<{ row: number; error: string }> | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface AutoDetectResponse {
+  job_id: string;
+  headers: string[];
+  suggested_mapping: Record<string, string>;
+  sample_rows: Record<string, string>[];
+  total_rows: number;
+}
+
+export interface ImportPreviewRow {
+  date: string;
+  amount: number;
+  description: string;
+  category: string | null;
+  notes: string | null;
+  warnings: string[];
+  is_duplicate: boolean;
+}
+
+export interface ImportPreviewResponse {
+  rows: ImportPreviewRow[];
+  total_rows: number;
+  warnings: string[];
+}
+
+export interface ColumnMappingRequest {
+  mapping: Record<string, string>;
+}
