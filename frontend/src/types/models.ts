@@ -172,3 +172,49 @@ export interface ImportPreviewResponse {
 export interface ColumnMappingRequest {
   mapping: Record<string, string>;
 }
+
+export interface SpendingByCategory {
+  category_id: string;
+  category_name: string;
+  category_color: string;
+  category_icon: string;
+  total_amount: number;
+  transaction_count: number;
+  percentage: number;
+}
+
+export interface SpendingTrend {
+  period: string;
+  total_amount: number;
+  transaction_count: number;
+}
+
+export interface BudgetVsActual {
+  budget_id: string;
+  category_name: string;
+  category_color: string;
+  budgeted_amount: number;
+  actual_amount: number;
+  difference: number;
+  percentage_used: number;
+}
+
+export interface MonthlyComparison {
+  month: string;
+  income: number;
+  expenses: number;
+  net: number;
+}
+
+export interface IncomeVsExpense {
+  period: string;
+  income: number;
+  expenses: number;
+  savings_rate: number;
+}
+
+export interface TopMerchant {
+  description: string;
+  total_amount: number;
+  transaction_count: number;
+}
