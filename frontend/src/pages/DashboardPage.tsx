@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TransactionList } from "@/components/transactions/TransactionList";
@@ -8,6 +9,7 @@ import { TrendLineChart } from "@/components/charts/TrendLineChart";
 import { TopMerchantsChart } from "@/components/charts/TopMerchantsChart";
 import { useBudgetSummary } from "@/hooks/useBudgets";
 import { useTransactions } from "@/hooks/useTransactions";
+import { useAccounts } from "@/hooks/useAccounts";
 import {
   useSpendingByCategory,
   useSpendingTrends,
@@ -39,6 +41,7 @@ export function DashboardPage() {
   const { data: spendingByCategory } = useSpendingByCategory(startDate, endDate);
   const { data: spendingTrends } = useSpendingTrends(startDate, endDate, "daily");
   const { data: topMerchants } = useTopMerchants(startDate, endDate, 5);
+  const { data: accounts } = useAccounts();
 
   const budgetHealth = summary
     ? Math.round(
@@ -138,6 +141,48 @@ export function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {accounts && accounts.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Account Balances</CardTitle>
+            <Link
+              to="/accounts"
+              className="text-sm text-primary hover:underline"
+            >
+              View all
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {accounts.slice(0, 4).map((account) => (
+                <div
+                  key={account.id}
+                  className="flex items-center justify-between"
+                >
+                  <div>
+                    <p className="text-sm font-medium">{account.name}</p>
+                    {account.institution_name && (
+                      <p className="text-xs text-muted-foreground">
+                        {account.institution_name}
+                      </p>
+                    )}
+                  </div>
+                  <span
+                    className={`text-sm font-semibold ${
+                      account.current_balance < 0
+                        ? "text-red-500"
+                        : "text-green-600"
+                    }`}
+                  >
+                    {formatCurrency(account.current_balance)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

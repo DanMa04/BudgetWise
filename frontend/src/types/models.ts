@@ -7,8 +7,29 @@ export interface Account {
   currency_code: string;
   current_balance: number;
   is_active: boolean;
+  plaid_item_id: string | null;
+  plaid_account_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface PlaidItem {
+  id: string;
+  institution_id: string;
+  institution_name: string;
+  status: string;
+  last_synced_at: string | null;
+  created_at: string;
+}
+
+export interface LinkTokenResponse {
+  link_token: string;
+}
+
+export interface SyncResponse {
+  added: number;
+  modified: number;
+  removed: number;
 }
 
 export interface Transaction {

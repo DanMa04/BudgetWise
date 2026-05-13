@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-react";
-import { getAccounts } from "@/api/accounts";
+import { getAccounts, createAccount } from "@/api/accounts";
+import type { CreateAccountData } from "@/types/models";
 
 export function useAccounts() {
   const { getToken } = useAuth();
@@ -11,6 +12,22 @@ export function useAccounts() {
       const token = await getToken();
       if (!token) throw new Error("Not authenticated");
       return getAccounts(token);
+    },
+  });
+}
+
+export function useCreateAccount() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: CreateAccountData) => {
+      const token = await getToken();
+      if (!token) throw new Error("Not authenticated");
+      return createAccount(data, token);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
     },
   });
 }

@@ -22,6 +22,8 @@ class AccountRead(BaseModel):
     currency_code: str
     current_balance: Decimal
     is_active: bool
+    plaid_item_id: uuid.UUID | None = None
+    plaid_account_id: str | None = None
     created_at: datetime
     updated_at: datetime
 

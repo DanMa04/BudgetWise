@@ -26,3 +26,4 @@ class User(Base):
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="user")  # noqa: F821
     budgets: Mapped[list["Budget"]] = relationship(back_populates="user")  # noqa: F821
     import_jobs: Mapped[list["ImportJob"]] = relationship(back_populates="user")  # noqa: F821
+    plaid_items: Mapped[list["PlaidItem"]] = relationship(back_populates="user")  # noqa: F821

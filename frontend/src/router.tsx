@@ -5,6 +5,7 @@ import { TransactionsPage } from "@/pages/TransactionsPage";
 import { BudgetsPage } from "@/pages/BudgetsPage";
 import { ImportPage } from "@/pages/ImportPage";
 import { ReportsPage } from "@/pages/ReportsPage";
+import { AccountsPage } from "@/pages/AccountsPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 
 export const router = createBrowserRouter([
@@ -14,6 +15,7 @@ export const router = createBrowserRouter([
       { index: true, element: <DashboardPage /> },
       { path: "transactions", element: <TransactionsPage /> },
       { path: "budgets", element: <BudgetsPage /> },
+      { path: "accounts", element: <AccountsPage /> },
       { path: "import", element: <ImportPage /> },
       { path: "reports", element: <ReportsPage /> },
       { path: "*", element: <NotFoundPage /> },
