@@ -10,6 +10,8 @@ import { TopMerchantsChart } from "@/components/charts/TopMerchantsChart";
 import { useBudgetSummary } from "@/hooks/useBudgets";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useAccounts } from "@/hooks/useAccounts";
+import { useGoals } from "@/hooks/useGoals";
+import { GoalProgressRing } from "@/components/goals/GoalProgressRing";
 import {
   useSpendingByCategory,
   useSpendingTrends,
@@ -42,6 +44,7 @@ export function DashboardPage() {
   const { data: spendingTrends } = useSpendingTrends(startDate, endDate, "daily");
   const { data: topMerchants } = useTopMerchants(startDate, endDate, 5);
   const { data: accounts } = useAccounts();
+  const { data: goals } = useGoals();
 
   const budgetHealth = summary
     ? Math.round(
@@ -233,6 +236,48 @@ export function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {goals && goals.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Goals</CardTitle>
+            <Link
+              to="/goals"
+              className="text-sm text-primary hover:underline"
+            >
+              View all
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {goals.slice(0, 3).map((goal) => (
+                <div
+                  key={goal.id}
+                  className="flex items-center gap-3"
+                >
+                  <GoalProgressRing
+                    percentage={
+                      goal.target_amount > 0
+                        ? (goal.current_amount / goal.target_amount) * 100
+                        : 0
+                    }
+                    size={48}
+                    strokeWidth={4}
+                    color={goal.color || undefined}
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{goal.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatCurrency(goal.current_amount)} of{" "}
+                      {formatCurrency(goal.target_amount)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

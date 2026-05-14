@@ -267,3 +267,65 @@ export interface CreateRuleData {
   pattern: string;
   priority?: number;
 }
+
+export interface Goal {
+  id: string;
+  user_id: string;
+  name: string;
+  goal_type: string;
+  target_amount: number;
+  current_amount: number;
+  currency_code: string;
+  icon: string | null;
+  color: string | null;
+  target_date: string | null;
+  linked_account_id: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GoalWithProgress extends Goal {
+  percentage: number;
+  remaining_amount: number;
+  monthly_rate: number;
+  projected_completion: string | null;
+  milestones_reached: number[];
+  contribution_count: number;
+  recent_contributions: GoalContribution[];
+}
+
+export interface GoalContribution {
+  id: string;
+  goal_id: string;
+  amount: number;
+  note: string | null;
+  transaction_id: string | null;
+  contributed_at: string;
+  created_at: string;
+}
+
+export interface GoalSummary {
+  total_goals: number;
+  active_goals: number;
+  total_target: number;
+  total_saved: number;
+  overall_progress: number;
+}
+
+export interface CreateGoalData {
+  name: string;
+  goal_type: string;
+  target_amount: number;
+  current_amount?: number;
+  icon?: string;
+  color?: string;
+  target_date?: string;
+  linked_account_id?: string;
+}
+
+export interface CreateContributionData {
+  amount: number;
+  note?: string;
+  contributed_at?: string;
+}
