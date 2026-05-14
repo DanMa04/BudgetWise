@@ -329,3 +329,51 @@ export interface CreateContributionData {
   note?: string;
   contributed_at?: string;
 }
+
+// Notification types
+
+export interface NotificationPreference {
+  id: string;
+  user_id: string;
+  notification_type: string;
+  channel: string;
+  enabled: boolean;
+  threshold: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationLog {
+  id: string;
+  user_id: string;
+  notification_type: string;
+  channel: string;
+  title: string;
+  message: string;
+  data: Record<string, unknown> | null;
+  is_read: boolean;
+  sent_at: string;
+  read_at: string | null;
+  status: string;
+  related_entity_type: string | null;
+  related_entity_id: string | null;
+}
+
+export interface NotificationLogList {
+  items: NotificationLog[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export interface CreateNotificationPreference {
+  notification_type: string;
+  channel: string;
+  enabled: boolean;
+  threshold?: number | null;
+}
+
+export interface UpdateNotificationPreference {
+  enabled?: boolean;
+  threshold?: number | null;
+}

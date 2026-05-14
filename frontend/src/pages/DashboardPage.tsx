@@ -18,6 +18,7 @@ import {
   useTopMerchants,
 } from "@/hooks/useReports";
 import { formatCurrency } from "@/lib/formatters";
+import { AlertBanner } from "@/components/notifications/AlertBanner";
 
 function getDateRange() {
   const end = new Date();
@@ -58,6 +59,7 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      <AlertBanner />
       <div>
         <h1 className="text-3xl font-bold tracking-tight">
           Welcome, {displayName}

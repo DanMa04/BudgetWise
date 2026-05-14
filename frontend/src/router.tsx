@@ -8,6 +8,7 @@ import { ReportsPage } from "@/pages/ReportsPage";
 import { AccountsPage } from "@/pages/AccountsPage";
 import { GoalsPage } from "@/pages/GoalsPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
+import { SettingsPage } from "@/pages/SettingsPage";
 
 export const router = createBrowserRouter([
   {
@@ -20,6 +21,7 @@ export const router = createBrowserRouter([
       { path: "accounts", element: <AccountsPage /> },
       { path: "import", element: <ImportPage /> },
       { path: "reports", element: <ReportsPage /> },
+      { path: "settings", element: <SettingsPage /> },
       { path: "*", element: <NotFoundPage /> },
     ],
   },
