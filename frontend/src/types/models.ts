@@ -44,6 +44,8 @@ export interface Transaction {
   is_pending: boolean;
   is_recurring: boolean;
   source: string;
+  category_confidence: number | null;
+  category_source: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -238,4 +240,30 @@ export interface TopMerchant {
   description: string;
   total_amount: number;
   transaction_count: number;
+}
+
+export interface CategorizationRule {
+  id: string;
+  user_id: string;
+  category_id: string;
+  rule_type: string;
+  pattern: string;
+  priority: number;
+  is_active: boolean;
+  created_by: string;
+  match_count: number;
+  created_at: string;
+}
+
+export interface CategorizationResponse {
+  category_id: string | null;
+  confidence: number;
+  source: string;
+}
+
+export interface CreateRuleData {
+  category_id: string;
+  rule_type: string;
+  pattern: string;
+  priority?: number;
 }

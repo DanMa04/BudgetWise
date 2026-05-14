@@ -4,7 +4,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import accounts, auth, budgets, categories, import_, plaid, reports, transactions
+from app.routers import (
+    accounts,
+    auth,
+    budgets,
+    categories,
+    categorization,
+    import_,
+    plaid,
+    reports,
+    transactions,
+)
 
 
 @asynccontextmanager
@@ -27,6 +37,7 @@ app.include_router(accounts.router, prefix="/api/v1")
 app.include_router(transactions.router, prefix="/api/v1")
 app.include_router(budgets.router, prefix="/api/v1")
 app.include_router(categories.router, prefix="/api/v1")
+app.include_router(categorization.router, prefix="/api/v1")
 app.include_router(import_.router, prefix="/api/v1")
 app.include_router(plaid.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")

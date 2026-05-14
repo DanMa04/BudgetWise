@@ -45,6 +45,8 @@ class Transaction(Base):
         ForeignKey("import_jobs.id", ondelete="SET NULL"), nullable=True
     )
     source: Mapped[str] = mapped_column(String(20), default="manual")
+    category_confidence: Mapped[float | None] = mapped_column(Numeric(3, 2), nullable=True)
+    category_source: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus } from "lucide-react";
+import { useMemo, useState } from "react";
+import { AlertTriangle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TransactionList } from "@/components/transactions/TransactionList";
 import { TransactionFilters } from "@/components/transactions/TransactionFilters";
@@ -23,6 +23,15 @@ export function TransactionsPage() {
   const { data: accounts = [] } = useAccounts();
   const createTransaction = useCreateTransaction();
 
+  const uncategorizedCount = useMemo(() => {
+    if (!data?.items) return 0;
+    return data.items.filter((t) => !t.category_id).length;
+  }, [data?.items]);
+
+  function showUncategorized() {
+    setFilters((f) => ({ ...f, category_id: "__uncategorized__", page: 1 }));
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -38,6 +47,19 @@ export function TransactionsPage() {
         </Button>
       </div>
 
+      {uncategorizedCount > 0 && filters.category_id !== "__uncategorized__" && (
+        <div className="flex items-center gap-3 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 dark:border-yellow-700 dark:bg-yellow-950/30">
+          <AlertTriangle className="h-4 w-4 text-yellow-600" />
+          <span className="flex-1 text-sm text-yellow-800 dark:text-yellow-200">
+            You have {uncategorizedCount} uncategorized transaction
+            {uncategorizedCount !== 1 && "s"}
+          </span>
+          <Button variant="outline" size="sm" onClick={showUncategorized}>
+            Review
+          </Button>
+        </div>
+      )}
+
       <TransactionFilters
         filters={filters}
         onFilterChange={setFilters}
@@ -51,6 +73,7 @@ export function TransactionsPage() {
       ) : (
         <TransactionList
           transactions={data?.items ?? []}
+          categories={categories}
           loading={isLoading}
         />
       )}

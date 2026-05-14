@@ -32,6 +32,8 @@ class TransactionRead(BaseModel):
     is_pending: bool
     is_recurring: bool
     source: str
+    category_confidence: float | None
+    category_source: str | None
     created_at: datetime
     updated_at: datetime
 
