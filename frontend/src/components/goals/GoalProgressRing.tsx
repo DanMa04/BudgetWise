@@ -24,7 +24,16 @@ export function GoalProgressRing({
   const fillColor = color || getDefaultColor(clamped);
 
   return (
-    <svg width={size} height={size} className="shrink-0">
+    <svg
+      width={size}
+      height={size}
+      className="shrink-0"
+      role="progressbar"
+      aria-valuenow={Math.round(clamped)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={`${Math.round(clamped)}% progress`}
+    >
       <circle
         cx={size / 2}
         cy={size / 2}

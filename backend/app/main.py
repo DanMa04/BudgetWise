@@ -1,9 +1,19 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.responses import JSONResponse
 
 from app.config import settings
+from app.database import get_db
+from app.middleware.rate_limit import limiter
+from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.routers import (
     accounts,
     auth,
@@ -27,6 +37,21 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="BudgetWise API", version="0.1.0", lifespan=lifespan)
 
+# --- Rate limiter setup ---
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# --- Middleware (order matters: last added runs first) ---
+# GZip compression for large responses
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# Security headers on every response
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Rate limiting
+app.add_middleware(SlowAPIMiddleware)
+
+# CORS (outermost — runs first on requests, last on responses)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.frontend_url],
@@ -50,5 +75,13 @@ app.include_router(extension.router, prefix="/api/v1")
 
 
 @app.get("/api/health")
-async def health():
-    return {"status": "ok"}
+async def health(db: AsyncSession = Depends(get_db)):
+    version = "0.1.0"
+    try:
+        await db.execute(text("SELECT 1"))
+        return {"status": "ok", "database": "ok", "version": version}
+    except Exception:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "degraded", "database": "error", "version": version},
+        )

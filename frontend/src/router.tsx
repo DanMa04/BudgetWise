@@ -1,14 +1,36 @@
+import { lazy } from "react";
 import { createBrowserRouter } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
-import { DashboardPage } from "@/pages/DashboardPage";
-import { TransactionsPage } from "@/pages/TransactionsPage";
-import { BudgetsPage } from "@/pages/BudgetsPage";
-import { ImportPage } from "@/pages/ImportPage";
-import { ReportsPage } from "@/pages/ReportsPage";
-import { AccountsPage } from "@/pages/AccountsPage";
-import { GoalsPage } from "@/pages/GoalsPage";
-import { NotFoundPage } from "@/pages/NotFoundPage";
-import { SettingsPage } from "@/pages/SettingsPage";
+
+const DashboardPage = lazy(() =>
+  import("@/pages/DashboardPage").then((m) => ({ default: m.DashboardPage })),
+);
+const TransactionsPage = lazy(() =>
+  import("@/pages/TransactionsPage").then((m) => ({
+    default: m.TransactionsPage,
+  })),
+);
+const BudgetsPage = lazy(() =>
+  import("@/pages/BudgetsPage").then((m) => ({ default: m.BudgetsPage })),
+);
+const ImportPage = lazy(() =>
+  import("@/pages/ImportPage").then((m) => ({ default: m.ImportPage })),
+);
+const ReportsPage = lazy(() =>
+  import("@/pages/ReportsPage").then((m) => ({ default: m.ReportsPage })),
+);
+const AccountsPage = lazy(() =>
+  import("@/pages/AccountsPage").then((m) => ({ default: m.AccountsPage })),
+);
+const GoalsPage = lazy(() =>
+  import("@/pages/GoalsPage").then((m) => ({ default: m.GoalsPage })),
+);
+const NotFoundPage = lazy(() =>
+  import("@/pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage })),
+);
+const SettingsPage = lazy(() =>
+  import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })),
+);
 
 export const router = createBrowserRouter([
   {

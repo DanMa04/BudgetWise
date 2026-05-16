@@ -7,7 +7,21 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.config import settings
 
-engine = create_async_engine(settings.database_url, echo=False)
+
+def _build_engine_kwargs() -> dict:
+    """Build engine kwargs, adding pool settings only for PostgreSQL."""
+    kwargs: dict = {"echo": False}
+    if settings.database_url.startswith("postgresql"):
+        kwargs.update(
+            pool_size=settings.db_pool_size,
+            max_overflow=settings.db_max_overflow,
+            pool_timeout=settings.db_pool_timeout,
+            pool_pre_ping=settings.db_pool_pre_ping,
+        )
+    return kwargs
+
+
+engine = create_async_engine(settings.database_url, **_build_engine_kwargs())
 async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 convention = {

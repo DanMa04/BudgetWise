@@ -7,7 +7,10 @@ from app.main import app
 async def test_health_endpoint(client: AsyncClient):
     response = await client.get("/api/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["database"] == "ok"
+    assert data["version"] == "0.1.0"
 
 
 async def test_get_me_returns_user(client: AsyncClient):

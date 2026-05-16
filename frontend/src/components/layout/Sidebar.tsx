@@ -28,7 +28,7 @@ export function Sidebar() {
       <div className="flex h-16 items-center border-b px-6">
         <h1 className="text-xl font-bold tracking-tight">BudgetWise</h1>
       </div>
-      <nav className="flex flex-col gap-1 p-4">
+      <nav role="navigation" aria-label="Main navigation" className="flex flex-col gap-1 p-4">
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}

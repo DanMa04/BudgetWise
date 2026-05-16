@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.middleware.rate_limit import limiter
 from app.models.user import User
 from app.schemas.extension import (
     BudgetCheckResponse,
@@ -18,7 +19,9 @@ router = APIRouter(prefix="/extension", tags=["extension"])
 
 
 @router.get("/budget-check", response_model=BudgetCheckResponse)
+@limiter.limit("30/minute")
 async def budget_check(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -26,7 +29,9 @@ async def budget_check(
 
 
 @router.post("/cart-check", response_model=CartCheckResponse)
+@limiter.limit("30/minute")
 async def cart_check(
+    request: Request,
     data: CartCheckRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

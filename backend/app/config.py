@@ -9,6 +9,12 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:5173"
     plaid_env: str = "mock"
 
+    # Database pool settings (only apply to PostgreSQL)
+    db_pool_size: int = 10
+    db_max_overflow: int = 20
+    db_pool_timeout: int = 30
+    db_pool_pre_ping: bool = True
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

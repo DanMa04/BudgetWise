@@ -18,7 +18,7 @@ const mobileNavItems = [
 
 export function MobileNav() {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 border-t bg-background md:hidden">
+    <nav aria-label="Mobile navigation" className="fixed inset-x-0 bottom-0 z-50 border-t bg-background md:hidden">
       <div className="flex items-center justify-around py-2">
         {mobileNavItems.map(({ to, icon: Icon, label }) => (
           <NavLink
