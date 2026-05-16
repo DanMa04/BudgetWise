@@ -10,6 +10,7 @@ from app.routers import (
     budgets,
     categories,
     categorization,
+    extension,
     goals,
     import_,
     notifications,
@@ -45,6 +46,7 @@ app.include_router(plaid.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")
 app.include_router(goals.router, prefix="/api/v1")
 app.include_router(notifications.router, prefix="/api/v1")
+app.include_router(extension.router, prefix="/api/v1")
 
 
 @app.get("/api/health")

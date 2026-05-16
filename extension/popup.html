@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BudgetWise</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <div class="header">
+      <div class="logo">
+        <div class="logo-icon">B</div>
+        <span class="logo-text">BudgetWise</span>
+      </div>
+      <div id="status-dot" class="status-dot"></div>
+    </div>
+
+    <div id="login-view" class="view" style="display:none;">
+      <p class="login-message">Connect to your BudgetWise account to get budget warnings while shopping.</p>
+      <div class="form-group">
+        <label for="api-url">API URL</label>
+        <input type="text" id="api-url" value="http://localhost:8000/api/v1" placeholder="API URL">
+      </div>
+      <div class="form-group">
+        <label for="auth-token">Auth Token</label>
+        <input type="password" id="auth-token" placeholder="Paste your auth token">
+      </div>
+      <button id="connect-btn" class="btn btn-primary">Connect</button>
+    </div>
+
+    <div id="budget-view" class="view" style="display:none;">
+      <div class="budget-summary">
+        <div class="budget-total">
+          <span class="budget-label">Budget Remaining</span>
+          <span id="remaining-amount" class="budget-amount">$0.00</span>
+        </div>
+        <div class="progress-bar">
+          <div id="progress-fill" class="progress-fill"></div>
+        </div>
+        <div class="progress-labels">
+          <span id="spent-label">$0 spent</span>
+          <span id="budget-label">of $0</span>
+        </div>
+      </div>
+
+      <div id="budget-list" class="budget-list"></div>
+
+      <div class="site-toggles">
+        <h3>Enabled Sites</h3>
+        <label class="toggle-row">
+          <span>Amazon</span>
+          <input type="checkbox" id="toggle-amazon" checked>
+        </label>
+        <label class="toggle-row">
+          <span>Target</span>
+          <input type="checkbox" id="toggle-target" checked>
+        </label>
+        <label class="toggle-row">
+          <span>Walmart</span>
+          <input type="checkbox" id="toggle-walmart" checked>
+        </label>
+      </div>
+
+      <div class="footer-actions">
+        <a href="http://localhost:5173" target="_blank" class="btn btn-secondary">Open BudgetWise</a>
+        <button id="disconnect-btn" class="btn btn-danger-text">Disconnect</button>
+      </div>
+    </div>
+  </div>
+  <script src="dist/popup.js" type="module"></script>
+</body>
+</html>
