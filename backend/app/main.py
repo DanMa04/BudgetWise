@@ -26,6 +26,7 @@ from app.routers import (
     notifications,
     plaid,
     reports,
+    teller,
     transactions,
 )
 
@@ -71,6 +72,7 @@ app.include_router(plaid.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")
 app.include_router(goals.router, prefix="/api/v1")
 app.include_router(notifications.router, prefix="/api/v1")
+app.include_router(teller.router, prefix="/api/v1")
 app.include_router(extension.router, prefix="/api/v1")
 
 

@@ -9,6 +9,12 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:5173"
     plaid_env: str = "mock"
 
+    # Teller.io settings
+    teller_env: str = "mock"  # "mock", "sandbox", "production", "disabled"
+    teller_application_id: str = ""
+    teller_api_key: str = ""
+    teller_certificate_path: str = ""  # Path to mTLS cert for production
+
     # Database pool settings (only apply to PostgreSQL)
     db_pool_size: int = 10
     db_max_overflow: int = 20

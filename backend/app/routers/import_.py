@@ -18,6 +18,7 @@ from app.services.import_service import (
     auto_detect_columns,
     clear_file_data,
     execute_import,
+    get_bank_presets,
     get_file_data,
     parse_file,
     preview_import,
@@ -29,6 +30,12 @@ router = APIRouter(prefix="/import", tags=["import"])
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 ALLOWED_EXTENSIONS = {"csv", "xlsx", "xls"}
+
+
+@router.get("/presets")
+async def list_presets():
+    """Return known bank format presets for column mapping."""
+    return get_bank_presets()
 
 
 @router.post("/upload", response_model=AutoDetectResponse, status_code=status.HTTP_201_CREATED)

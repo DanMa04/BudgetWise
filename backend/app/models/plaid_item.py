@@ -19,6 +19,7 @@ class PlaidItem(Base):
     item_id: Mapped[str] = mapped_column(String(200), nullable=False)
     sync_cursor: Mapped[str | None] = mapped_column(String(500))
     status: Mapped[str] = mapped_column(String(20), default="active")
+    provider: Mapped[str] = mapped_column(String(20), default="plaid")
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error_message: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(

@@ -1,22 +1,102 @@
 import io
+import logging
 import re
 import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 
 import pandas as pd
+from dateutil import parser as dateutil_parser
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.category import Category
 from app.models.import_job import ImportJob
 from app.models.transaction import Transaction
 from app.schemas.import_job import ImportPreviewResponse, ImportPreviewRow
+
+logger = logging.getLogger(__name__)
 
 # In-memory cache for parsed file data keyed by job_id.
 # Phase 10 improvement: move to Redis or S3.
 _file_cache: dict[uuid.UUID, tuple[list[str], list[dict], int]] = {}
 
-DATE_FORMATS = ["%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y", "%m-%d-%Y"]
+DATE_FORMATS = [
+    "%Y-%m-%d",
+    "%m/%d/%Y",
+    "%m/%d/%y",
+    "%d/%m/%Y",
+    "%d/%m/%y",
+    "%m-%d-%Y",
+    "%Y-%m-%d %H:%M:%S",
+    "%d %b %Y",
+    "%d %B %Y",
+    "%b %d, %Y",
+    "%B %d, %Y",
+]
+
+BANK_PRESETS = {
+    "chase_checking": {
+        "name": "Chase Checking/Savings",
+        "date_column": "Transaction Date",
+        "amount_column": "Amount",
+        "description_column": "Description",
+        "category_column": "Category",
+    },
+    "chase_credit": {
+        "name": "Chase Credit Card",
+        "date_column": "Transaction Date",
+        "amount_column": "Amount",
+        "description_column": "Description",
+        "category_column": "Category",
+    },
+    "bofa": {
+        "name": "Bank of America",
+        "date_column": "Date",
+        "amount_column": "Amount",
+        "description_column": "Description",
+    },
+    "citi": {
+        "name": "Citibank",
+        "date_column": "Date",
+        "debit_column": "Debit",
+        "credit_column": "Credit",
+        "description_column": "Description",
+    },
+    "amex": {
+        "name": "American Express",
+        "date_column": "Date",
+        "amount_column": "Amount",
+        "description_column": "Description",
+        "notes_column": "Extended Details",
+    },
+    "wells_fargo": {
+        "name": "Wells Fargo",
+        "date_column": "Date",
+        "amount_column": "Amount",
+        "description_column": "Description",
+    },
+    "capital_one": {
+        "name": "Capital One",
+        "date_column": "Transaction Date",
+        "debit_column": "Debit",
+        "credit_column": "Credit",
+        "description_column": "Description",
+        "category_column": "Category",
+    },
+    "discover": {
+        "name": "Discover",
+        "date_column": "Trans. Date",
+        "amount_column": "Amount",
+        "description_column": "Description",
+        "category_column": "Category",
+    },
+}
+
+
+def get_bank_presets() -> dict[str, dict[str, str]]:
+    """Return known column mappings for common banks."""
+    return BANK_PRESETS
 
 
 async def parse_file(
@@ -48,7 +128,7 @@ def auto_detect_columns(
     """Heuristic mapping of file columns to our fields.
 
     Returns dict mapping file column names to our field names:
-    date, amount, description, category, notes, skip.
+    date, amount, debit, credit, description, category, notes, skip.
     """
     mapping: dict[str, str] = {}
     headers_lower = {h: h.lower().strip() for h in headers}
@@ -84,13 +164,21 @@ def auto_detect_columns(
             mapping[h] = "amount"
             break
 
-    if "amount" not in mapping.values() and debit_col:
+    # If both debit and credit columns found, map them separately
+    if "amount" not in mapping.values() and debit_col and credit_col:
+        mapping[debit_col] = "debit"
+        mapping[credit_col] = "credit"
+    elif "amount" not in mapping.values() and debit_col:
         mapping[debit_col] = "amount"
-    if "amount" not in mapping.values() and credit_col:
+    elif "amount" not in mapping.values() and credit_col:
         mapping[credit_col] = "amount"
 
     # If still no amount column, try to find numeric columns
-    if "amount" not in mapping.values() and sample_rows:
+    if (
+        "amount" not in mapping.values()
+        and "debit" not in mapping.values()
+        and sample_rows
+    ):
         for h in headers:
             if h in mapping:
                 continue
@@ -155,12 +243,20 @@ def validate_mapping(mapping: dict[str, str], headers: list[str]) -> list[str]:
     Returns list of validation errors (empty = valid).
     """
     errors: list[str] = []
-    required_fields = {"date", "amount", "description"}
     mapped_fields = set(mapping.values())
 
-    for field in required_fields:
-        if field not in mapped_fields:
-            errors.append(f"Required field '{field}' is not mapped")
+    # amount OR (debit + credit) required
+    has_amount = "amount" in mapped_fields
+    has_debit_credit = "debit" in mapped_fields and "credit" in mapped_fields
+    has_debit_only = "debit" in mapped_fields and "credit" not in mapped_fields
+
+    if not has_amount and not has_debit_credit and not has_debit_only:
+        errors.append("Required field 'amount' is not mapped")
+
+    if "date" not in mapped_fields:
+        errors.append("Required field 'date' is not mapped")
+    if "description" not in mapped_fields:
+        errors.append("Required field 'description' is not mapped")
 
     for col_name in mapping:
         if col_name not in headers:
@@ -194,10 +290,10 @@ async def preview_import(
         else:
             date_str = parsed_date.isoformat()
 
-        # Parse amount
-        raw_amount = str(row.get(field_to_col.get("amount", ""), ""))
-        parsed_amount = _parse_amount(raw_amount)
+        # Parse amount (handle debit/credit columns)
+        parsed_amount = _resolve_amount(row, field_to_col)
         if parsed_amount is None:
+            raw_amount = str(row.get(field_to_col.get("amount", ""), ""))
             warnings.append(f"Could not parse amount: '{raw_amount}'")
             amount_val = 0.0
         else:
@@ -261,6 +357,10 @@ async def execute_import(
     skipped = 0
     error_count = 0
     errors: list[dict] = []
+    created_transactions: list[Transaction] = []
+
+    # Pre-fetch user categories for file-category matching
+    category_map = await _build_category_map(db, user_id)
 
     for i, row in enumerate(rows):
         row_num = i + 1
@@ -273,10 +373,10 @@ async def execute_import(
                 error_count += 1
                 continue
 
-            # Parse amount
-            raw_amount = str(row.get(field_to_col.get("amount", ""), ""))
-            parsed_amount = _parse_amount(raw_amount)
+            # Parse amount (handle debit/credit columns)
+            parsed_amount = _resolve_amount(row, field_to_col)
             if parsed_amount is None:
+                raw_amount = str(row.get(field_to_col.get("amount", ""), ""))
                 errors.append(
                     {"row": row_num, "error": f"Invalid amount: '{raw_amount}'"}
                 )
@@ -305,6 +405,15 @@ async def execute_import(
             if "notes" in field_to_col:
                 notes = str(row.get(field_to_col["notes"], "")).strip() or None
 
+            # Check file category column
+            category_id = None
+            category_source = None
+            if "category" in field_to_col:
+                raw_category = str(row.get(field_to_col["category"], "")).strip()
+                if raw_category and raw_category.lower() in category_map:
+                    category_id = category_map[raw_category.lower()]
+                    category_source = "import"
+
             transaction = Transaction(
                 user_id=user_id,
                 account_id=account_id,
@@ -314,12 +423,22 @@ async def execute_import(
                 notes=notes,
                 source=source,
                 import_job_id=job_id,
+                category_id=category_id,
+                category_source=category_source,
+                category_confidence=1.0 if category_id else None,
             )
             db.add(transaction)
+            created_transactions.append(transaction)
             imported += 1
         except Exception as exc:
             errors.append({"row": row_num, "error": str(exc)})
             error_count += 1
+
+    # Flush to persist transactions before categorization
+    await db.flush()
+
+    # Auto-categorize uncategorized transactions via ML/rules
+    await _categorize_imported_transactions(db, user_id, created_transactions)
 
     # Update import job
     result = await db.execute(
@@ -336,6 +455,92 @@ async def execute_import(
     await db.flush()
     await db.refresh(job)
     return job
+
+
+async def _build_category_map(
+    db: AsyncSession, user_id: uuid.UUID
+) -> dict[str, uuid.UUID]:
+    """Build a case-insensitive mapping of category names to IDs for a user."""
+    result = await db.execute(
+        select(Category).where(
+            (Category.user_id == user_id) | (Category.is_system.is_(True))
+        )
+    )
+    categories = result.scalars().all()
+    return {cat.name.lower(): cat.id for cat in categories}
+
+
+async def _categorize_imported_transactions(
+    db: AsyncSession, user_id: uuid.UUID, transactions: list[Transaction]
+) -> None:
+    """Auto-categorize imported transactions that don't already have a category.
+
+    Uses the categorization service (rules + ML). Failures are logged but do not
+    prevent the import from succeeding.
+    """
+    uncategorized = [t for t in transactions if t.category_id is None]
+    if not uncategorized:
+        return
+
+    try:
+        from app.services.categorization_service import categorize_transaction
+
+        for txn in uncategorized:
+            try:
+                cat_id, confidence, source = await categorize_transaction(
+                    db, user_id, txn.description
+                )
+                if cat_id:
+                    txn.category_id = cat_id
+                    txn.category_confidence = confidence
+                    txn.category_source = source
+            except Exception as exc:
+                logger.debug(
+                    "Categorization failed for txn '%s': %s", txn.description, exc
+                )
+                continue
+
+        await db.flush()
+    except Exception as exc:
+        logger.warning("Categorization service unavailable during import: %s", exc)
+
+
+def _resolve_amount(row: dict, field_to_col: dict[str, str]) -> Decimal | None:
+    """Resolve the amount from a row, handling debit/credit columns.
+
+    If both debit and credit columns are mapped:
+    - Debit values become positive (expenses)
+    - Credit values become negative (income/refunds)
+    - Use whichever is non-zero/non-empty
+
+    If only amount column, use as-is.
+    """
+    if "debit" in field_to_col and "credit" in field_to_col:
+        raw_debit = str(row.get(field_to_col["debit"], "")).strip()
+        raw_credit = str(row.get(field_to_col["credit"], "")).strip()
+
+        debit_val = _parse_amount(raw_debit) if raw_debit else None
+        credit_val = _parse_amount(raw_credit) if raw_credit else None
+
+        if debit_val is not None and debit_val != Decimal("0"):
+            # Debit = positive (expense)
+            return abs(debit_val)
+        elif credit_val is not None and credit_val != Decimal("0"):
+            # Credit = negative (income/refund)
+            return -abs(credit_val)
+        elif debit_val is not None:
+            return debit_val
+        elif credit_val is not None:
+            return -credit_val if credit_val != Decimal("0") else Decimal("0")
+        return None
+    elif "amount" in field_to_col:
+        raw_amount = str(row.get(field_to_col["amount"], ""))
+        return _parse_amount(raw_amount)
+    elif "debit" in field_to_col:
+        # Only debit column, treat like amount
+        raw_debit = str(row.get(field_to_col["debit"], ""))
+        return _parse_amount(raw_debit)
+    return None
 
 
 async def detect_duplicates(
@@ -360,43 +565,60 @@ async def detect_duplicates(
 
 
 def _try_parse_date(value: str) -> date | None:
-    """Try multiple date formats to parse a date string."""
-    value = value.strip()
-    if not value:
+    """Try multiple date formats to parse a date string, with dateutil fallback."""
+    stripped = value.strip()
+    if not stripped:
         return None
+    # Try explicit formats first (faster)
     for fmt in DATE_FORMATS:
         try:
-            return datetime.strptime(value, fmt).date()
+            return datetime.strptime(stripped, fmt).date()
         except ValueError:
             continue
-    return None
+    # Fallback to dateutil (handles most formats)
+    try:
+        return dateutil_parser.parse(stripped, dayfirst=False).date()
+    except (ValueError, TypeError):
+        return None
 
 
 def _parse_amount(value: str) -> Decimal | None:
-    """Parse an amount string, handling currency symbols, commas, parentheses (negatives)."""
-    value = value.strip()
-    if not value:
+    """Parse an amount string, handling currency symbols, commas, parentheses, CR/DR."""
+    stripped = value.strip()
+    if not stripped:
         return None
 
-    # Handle parentheses as negative: (45.67) -> -45.67
+    # Handle parentheses as negative
     is_negative = False
-    if value.startswith("(") and value.endswith(")"):
-        value = value[1:-1]
+    if stripped.startswith("(") and stripped.endswith(")"):
         is_negative = True
+        stripped = stripped[1:-1]
 
-    # Remove currency symbols and commas
-    value = re.sub(r"[$£€,]", "", value)
-    value = value.strip()
+    # Handle CR/DR suffixes
+    upper = stripped.upper()
+    if upper.endswith(" CR") or upper.endswith(" DR"):
+        stripped = stripped[:-3].strip()
 
-    if not value:
+    # Remove currency symbols and whitespace
+    cleaned = re.sub(r"[^\d.,\-]", "", stripped)
+    if not cleaned:
+        return None
+
+    # Handle thousands separators
+    cleaned = cleaned.replace(",", "")
+
+    # Handle negative sign
+    if cleaned.startswith("-"):
+        is_negative = not is_negative
+        cleaned = cleaned[1:]
+
+    if not cleaned:
         return None
 
     try:
-        amount = Decimal(value)
-        if is_negative:
-            amount = -amount
-        return amount
-    except InvalidOperation:
+        result = Decimal(cleaned)
+        return -result if is_negative else result
+    except (InvalidOperation, ValueError):
         return None
 
 
