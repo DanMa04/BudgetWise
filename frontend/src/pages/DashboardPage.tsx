@@ -32,7 +32,7 @@ function getDateRange() {
 
 export function DashboardPage() {
   const { displayName } = useAuth();
-  const { startDate, endDate } = useMemo(getDateRange, []);
+  const { startDate, endDate } = useMemo(() => getDateRange(), []);
 
   const { data: summary } = useBudgetSummary();
   const { data: recentTxData, isLoading: txLoading } = useTransactions({

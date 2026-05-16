@@ -23,10 +23,11 @@ export function TransactionsPage() {
   const { data: accounts = [] } = useAccounts();
   const createTransaction = useCreateTransaction();
 
+  const items = data?.items;
   const uncategorizedCount = useMemo(() => {
-    if (!data?.items) return 0;
-    return data.items.filter((t) => !t.category_id).length;
-  }, [data?.items]);
+    if (!items) return 0;
+    return items.filter((t) => !t.category_id).length;
+  }, [items]);
 
   function showUncategorized() {
     setFilters((f) => ({ ...f, category_id: "__uncategorized__", page: 1 }));

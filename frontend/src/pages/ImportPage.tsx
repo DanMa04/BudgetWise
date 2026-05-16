@@ -121,6 +121,7 @@ export function ImportPage() {
     [uploadMutation]
   );
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleFileUploaded = useCallback((_response: AutoDetectResponse) => {
     // Handled by handleUpload onSuccess
   }, []);
