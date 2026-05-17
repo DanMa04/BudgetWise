@@ -83,9 +83,9 @@ async def test_spending_by_category(
     )
 
     today = date.today()
-    await _create_transaction(db_session, test_user.id, account.id, cat1.id, 100, today)
-    await _create_transaction(db_session, test_user.id, account.id, cat1.id, 50, today)
-    await _create_transaction(db_session, test_user.id, account.id, cat2.id, 50, today)
+    await _create_transaction(db_session, test_user.id, account.id, cat1.id, -100, today)
+    await _create_transaction(db_session, test_user.id, account.id, cat1.id, -50, today)
+    await _create_transaction(db_session, test_user.id, account.id, cat2.id, -50, today)
     await db_session.commit()
 
     response = await client.get(
@@ -131,8 +131,8 @@ async def test_spending_trends_monthly(
     today = date.today()
     last_month = (today.replace(day=1) - timedelta(days=1)).replace(day=15)
 
-    await _create_transaction(db_session, test_user.id, account.id, cat.id, 100, today)
-    await _create_transaction(db_session, test_user.id, account.id, cat.id, 200, last_month)
+    await _create_transaction(db_session, test_user.id, account.id, cat.id, -100, today)
+    await _create_transaction(db_session, test_user.id, account.id, cat.id, -200, last_month)
     await db_session.commit()
 
     response = await client.get(
@@ -159,8 +159,8 @@ async def test_spending_trends_daily(
     today = date.today()
     yesterday = today - timedelta(days=1)
 
-    await _create_transaction(db_session, test_user.id, account.id, cat.id, 50, today)
-    await _create_transaction(db_session, test_user.id, account.id, cat.id, 75, yesterday)
+    await _create_transaction(db_session, test_user.id, account.id, cat.id, -50, today)
+    await _create_transaction(db_session, test_user.id, account.id, cat.id, -75, yesterday)
     await db_session.commit()
 
     response = await client.get(
@@ -201,8 +201,8 @@ async def test_budget_vs_actual(
     db_session.add(budget)
     await db_session.flush()
 
-    await _create_transaction(db_session, test_user.id, account.id, cat.id, 150, today)
-    await _create_transaction(db_session, test_user.id, account.id, cat.id, 100, today)
+    await _create_transaction(db_session, test_user.id, account.id, cat.id, -150, today)
+    await _create_transaction(db_session, test_user.id, account.id, cat.id, -100, today)
     await db_session.commit()
 
     response = await client.get(
@@ -230,7 +230,7 @@ async def test_monthly_comparison(
 
     today = date.today()
 
-    await _create_transaction(db_session, test_user.id, account.id, expense_cat.id, 300, today)
+    await _create_transaction(db_session, test_user.id, account.id, expense_cat.id, -300, today)
     await _create_transaction(db_session, test_user.id, account.id, income_cat.id, 1000, today)
     await db_session.commit()
 
@@ -257,7 +257,7 @@ async def test_income_vs_expense(
 
     today = date.today()
 
-    await _create_transaction(db_session, test_user.id, account.id, expense_cat.id, 200, today)
+    await _create_transaction(db_session, test_user.id, account.id, expense_cat.id, -200, today)
     await _create_transaction(db_session, test_user.id, account.id, income_cat.id, 1000, today)
     await db_session.commit()
 
@@ -287,13 +287,13 @@ async def test_top_merchants(
     today = date.today()
 
     await _create_transaction(
-        db_session, test_user.id, account.id, cat.id, 100, today, "Whole Foods"
+        db_session, test_user.id, account.id, cat.id, -100, today, "Whole Foods"
     )
     await _create_transaction(
-        db_session, test_user.id, account.id, cat.id, 80, today, "Whole Foods"
+        db_session, test_user.id, account.id, cat.id, -80, today, "Whole Foods"
     )
     await _create_transaction(
-        db_session, test_user.id, account.id, cat.id, 50, today, "Trader Joes"
+        db_session, test_user.id, account.id, cat.id, -50, today, "Trader Joes"
     )
     await db_session.commit()
 
@@ -329,10 +329,10 @@ async def test_date_range_filtering(
     out_of_range = today - timedelta(days=60)
 
     await _create_transaction(
-        db_session, test_user.id, account.id, cat.id, 100, in_range, "In Range"
+        db_session, test_user.id, account.id, cat.id, -100, in_range, "In Range"
     )
     await _create_transaction(
-        db_session, test_user.id, account.id, cat.id, 200, out_of_range, "Out of Range"
+        db_session, test_user.id, account.id, cat.id, -200, out_of_range, "Out of Range"
     )
     await db_session.commit()
 
@@ -368,7 +368,7 @@ async def test_user_isolation(
 
     today = date.today()
     await _create_transaction(
-        db_session, other_user.id, account.id, cat.id, 500, today
+        db_session, other_user.id, account.id, cat.id, -500, today
     )
     await db_session.commit()
 

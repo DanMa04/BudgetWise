@@ -406,11 +406,12 @@ async def test_debit_credit_import(
     assert len(transactions) == 4
 
     # Find specific transactions by description
+    # Debits = money out = negative, Credits = money in = positive
     txn_map = {t.description: t for t in transactions}
-    assert txn_map["Grocery Store"].amount == Decimal("45.67")
-    assert txn_map["Gas Station"].amount == Decimal("38.20")
-    assert txn_map["Payroll Deposit"].amount == Decimal("-3500.00")
-    assert txn_map["Refund from Amazon"].amount == Decimal("-25.00")
+    assert txn_map["Grocery Store"].amount == Decimal("-45.67")
+    assert txn_map["Gas Station"].amount == Decimal("-38.20")
+    assert txn_map["Payroll Deposit"].amount == Decimal("3500.00")
+    assert txn_map["Refund from Amazon"].amount == Decimal("25.00")
 
 
 async def test_category_from_file(

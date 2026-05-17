@@ -84,7 +84,7 @@ async def test_list_budgets_with_spend(
         account_id=account.id,
         category_id=category.id,
         date=today,
-        amount=100,
+        amount=-100,
         description="Groceries 1",
         source="manual",
     )
@@ -93,7 +93,7 @@ async def test_list_budgets_with_spend(
         account_id=account.id,
         category_id=category.id,
         date=today,
-        amount=50,
+        amount=-50,
         description="Groceries 2",
         source="manual",
     )
@@ -146,7 +146,7 @@ async def test_budget_summary(
         account_id=account.id,
         category_id=cat1.id,
         date=today,
-        amount=100,
+        amount=-100,
         description="Grocery spend",
         source="manual",
     )
@@ -235,7 +235,7 @@ async def test_budget_no_overspend_error(
             "account_id": str(account.id),
             "category_id": str(category.id),
             "date": today.isoformat(),
-            "amount": "100.00",
+            "amount": "-100.00",
             "description": "Over budget purchase",
         },
     )
