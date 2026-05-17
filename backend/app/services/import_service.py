@@ -483,13 +483,11 @@ async def _categorize_imported_transactions(
         return
 
     try:
+        from app.models.categorization_rule import CategorizationRule
         from app.services.categorization_service import (
             categorize_transaction,
             seed_default_rules,
         )
-
-        # Ensure rules exist for this user (seeds defaults if none exist)
-        from app.models.categorization_rule import CategorizationRule
 
         rule_check = await db.execute(
             select(CategorizationRule.id)
