@@ -5,6 +5,7 @@ import {
   submitMapping,
   getPreview,
   confirmImport,
+  deleteImport,
   getImportHistory,
 } from "@/api/import";
 
@@ -72,6 +73,23 @@ export function useConfirmImport() {
       const token = await getToken();
       if (!token) throw new Error("Not authenticated");
       return confirmImport(jobId, token);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["import-history"] });
+    },
+  });
+}
+
+export function useDeleteImport() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (jobId: string) => {
+      const token = await getToken();
+      if (!token) throw new Error("Not authenticated");
+      return deleteImport(jobId, token);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });

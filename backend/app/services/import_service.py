@@ -483,7 +483,21 @@ async def _categorize_imported_transactions(
         return
 
     try:
-        from app.services.categorization_service import categorize_transaction
+        from app.services.categorization_service import (
+            categorize_transaction,
+            seed_default_rules,
+        )
+
+        # Ensure rules exist for this user (seeds defaults if none exist)
+        from app.models.categorization_rule import CategorizationRule
+
+        rule_check = await db.execute(
+            select(CategorizationRule.id)
+            .where(CategorizationRule.user_id == user_id)
+            .limit(1)
+        )
+        if not rule_check.scalar_one_or_none():
+            await seed_default_rules(db, user_id)
 
         for txn in uncategorized:
             try:
@@ -523,15 +537,15 @@ def _resolve_amount(row: dict, field_to_col: dict[str, str]) -> Decimal | None:
         credit_val = _parse_amount(raw_credit) if raw_credit else None
 
         if debit_val is not None and debit_val != Decimal("0"):
-            # Debit = positive (expense)
-            return abs(debit_val)
+            # Debit = negative (money out)
+            return -abs(debit_val)
         elif credit_val is not None and credit_val != Decimal("0"):
-            # Credit = negative (income/refund)
-            return -abs(credit_val)
+            # Credit = positive (money in)
+            return abs(credit_val)
         elif debit_val is not None:
-            return debit_val
+            return Decimal("0")
         elif credit_val is not None:
-            return -credit_val if credit_val != Decimal("0") else Decimal("0")
+            return Decimal("0")
         return None
     elif "amount" in field_to_col:
         raw_amount = str(row.get(field_to_col["amount"], ""))

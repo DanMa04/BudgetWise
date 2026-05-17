@@ -67,6 +67,17 @@ export async function confirmImport(
   );
 }
 
+export async function deleteImport(
+  jobId: string,
+  token: string
+): Promise<{ deleted_transactions: number; job_id: string }> {
+  return apiFetch<{ deleted_transactions: number; job_id: string }>(
+    `/api/v1/import/${jobId}`,
+    { method: "DELETE" },
+    token
+  );
+}
+
 export async function getImportHistory(
   token: string
 ): Promise<ImportJob[]> {

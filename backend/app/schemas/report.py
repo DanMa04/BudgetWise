@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 
 class SpendingByCategory(BaseModel):
-    category_id: uuid.UUID
+    category_id: uuid.UUID | None
     category_name: str
     category_color: str
     category_icon: str

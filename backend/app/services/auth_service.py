@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models.user import User
+from app.services.categorization_service import seed_default_rules
 from app.services.category_service import seed_default_categories
 
 CLERK_JWKS_URL = "https://api.clerk.com/v1/jwks"
@@ -55,5 +56,6 @@ async def get_or_create_user(
         db.add(user)
         await db.flush()
         await seed_default_categories(db, user.id)
+        await seed_default_rules(db, user.id)
 
     return user

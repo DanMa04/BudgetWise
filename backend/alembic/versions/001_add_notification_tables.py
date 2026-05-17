@@ -26,7 +26,7 @@ def upgrade() -> None:
         sa.Column("user_id", sa.Uuid(), nullable=False),
         sa.Column("notification_type", sa.String(50), nullable=False),
         sa.Column("channel", sa.String(20), nullable=False),
-        sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.text("1")),
+        sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         sa.Column("threshold", sa.Integer(), nullable=True),
         sa.Column(
             "created_at",
@@ -64,7 +64,7 @@ def upgrade() -> None:
         sa.Column("title", sa.String(200), nullable=False),
         sa.Column("message", sa.Text(), nullable=False),
         sa.Column("data", sa.Text(), nullable=True),
-        sa.Column("is_read", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("is_read", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column(
             "sent_at",
             sa.DateTime(timezone=True),

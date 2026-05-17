@@ -10,6 +10,7 @@ interface ColumnMapperProps {
   sampleRows: Record<string, string>[];
   suggestedMapping: Record<string, string>;
   onMappingConfirmed: (mapping: Record<string, string>) => void;
+  onBack: () => void;
   loading: boolean;
 }
 
@@ -29,6 +30,7 @@ export function ColumnMapper({
   sampleRows,
   suggestedMapping,
   onMappingConfirmed,
+  onBack,
   loading,
 }: ColumnMapperProps) {
   const [mapping, setMapping] = useState<Record<string, string>>(() => {
@@ -139,7 +141,10 @@ export function ColumnMapper({
           </p>
         )}
 
-        <div className="mt-6 flex justify-end">
+        <div className="mt-6 flex justify-between">
+          <Button variant="outline" onClick={onBack} disabled={loading}>
+            Back
+          </Button>
           <Button
             onClick={handleConfirm}
             disabled={missingRequired.length > 0 || loading}

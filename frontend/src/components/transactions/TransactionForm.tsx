@@ -51,10 +51,15 @@ export function TransactionForm({
     e.preventDefault();
     if (!accountId || !date || !amount || !description) return;
 
+    const selectedCategory = categories.find((c) => c.id === categoryId);
+    const isIncome = selectedCategory?.is_income ?? false;
+    const parsedAmount = Math.abs(parseFloat(amount));
+    const signedAmount = isIncome ? parsedAmount : -parsedAmount;
+
     onSubmit({
       account_id: accountId,
       date,
-      amount: parseFloat(amount),
+      amount: signedAmount,
       description,
       category_id: categoryId || undefined,
       notes: notes || undefined,

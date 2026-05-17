@@ -101,14 +101,14 @@ async def get_budgets_with_spend(
         period_start, period_end = get_current_period(budget)
 
         # Sum transactions in this category for the current period
-        # Positive amounts are expenses
+        # Negative amounts are expenses (banking convention)
         spend_result = await db.execute(
-            select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+            select(func.coalesce(func.sum(func.abs(Transaction.amount)), 0)).where(
                 Transaction.user_id == user_id,
                 Transaction.category_id == budget.category_id,
                 Transaction.date >= period_start,
                 Transaction.date <= period_end,
-                Transaction.amount > 0,  # Only expenses (positive amounts)
+                Transaction.amount < 0,
             )
         )
         spent = float(spend_result.scalar() or 0)

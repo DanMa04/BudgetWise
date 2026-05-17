@@ -159,7 +159,7 @@ export function TransactionList({
                   </td>
                   <td
                     className={`whitespace-nowrap px-4 py-3 text-right font-medium ${
-                      tx.amount > 0 ? "text-red-500" : "text-green-600"
+                      tx.amount < 0 ? "text-red-500" : "text-green-600"
                     }`}
                   >
                     {formatCurrency(Math.abs(tx.amount))}

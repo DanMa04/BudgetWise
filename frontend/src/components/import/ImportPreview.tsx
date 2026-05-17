@@ -8,6 +8,7 @@ interface ImportPreviewProps {
   preview: ImportPreviewResponse;
   onConfirm: () => void;
   onCancel: () => void;
+  onBack: () => void;
   loading: boolean;
 }
 
@@ -15,6 +16,7 @@ export function ImportPreview({
   preview,
   onConfirm,
   onCancel,
+  onBack,
   loading,
 }: ImportPreviewProps) {
   const duplicateCount = preview.rows.filter((r) => r.is_duplicate).length;
@@ -123,20 +125,25 @@ export function ImportPreview({
           </div>
         )}
 
-        <div className="mt-6 flex justify-end gap-3">
-          <Button variant="outline" onClick={onCancel} disabled={loading}>
-            Cancel
+        <div className="mt-6 flex justify-between">
+          <Button variant="outline" onClick={onBack} disabled={loading}>
+            Back
           </Button>
-          <Button onClick={onConfirm} disabled={loading}>
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Importing...
-              </>
-            ) : (
-              `Import ${readyCount} Transactions`
-            )}
-          </Button>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={onCancel} disabled={loading}>
+              Cancel
+            </Button>
+            <Button onClick={onConfirm} disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                `Import ${readyCount} Transactions`
+              )}
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

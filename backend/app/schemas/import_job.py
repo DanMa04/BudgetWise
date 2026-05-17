@@ -9,7 +9,7 @@ from pydantic import BaseModel
 class ImportJobRead(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
-    account_id: uuid.UUID
+    account_id: uuid.UUID | None
     filename: str
     file_type: str
     status: str

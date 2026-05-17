@@ -12,6 +12,7 @@ import {
   useSubmitMapping,
   useGetPreview,
   useConfirmImport,
+  useDeleteImport,
 } from "@/hooks/useImport";
 import { cn } from "@/lib/utils";
 import type {
@@ -107,6 +108,7 @@ export function ImportPage() {
   const mappingMutation = useSubmitMapping();
   const previewMutation = useGetPreview();
   const confirmMutation = useConfirmImport();
+  const deleteMutation = useDeleteImport();
 
   const handleUpload = useCallback(
     (file: File) => {
@@ -157,6 +159,22 @@ export function ImportPage() {
       },
     });
   }, [jobId, confirmMutation]);
+
+  const handleBackToUpload = useCallback(() => {
+    setCurrentStep(1);
+    setJobId(null);
+    setUploadResponse(null);
+    setPreviewData(null);
+    uploadMutation.reset();
+    mappingMutation.reset();
+    previewMutation.reset();
+  }, [uploadMutation, mappingMutation, previewMutation]);
+
+  const handleBackToMapping = useCallback(() => {
+    setCurrentStep(2);
+    setPreviewData(null);
+    previewMutation.reset();
+  }, [previewMutation]);
 
   const handleCancel = useCallback(() => {
     setCurrentStep(1);
@@ -209,6 +227,7 @@ export function ImportPage() {
             sampleRows={uploadResponse.sample_rows}
             suggestedMapping={uploadResponse.suggested_mapping}
             onMappingConfirmed={handleMappingConfirmed}
+            onBack={handleBackToUpload}
             loading={mappingMutation.isPending || previewMutation.isPending}
           />
         )}
@@ -218,6 +237,7 @@ export function ImportPage() {
             preview={previewData}
             onConfirm={handleConfirmImport}
             onCancel={handleCancel}
+            onBack={handleBackToMapping}
             loading={confirmMutation.isPending}
           />
         )}
@@ -261,7 +281,12 @@ export function ImportPage() {
       </div>
 
       {/* Import History (always visible) */}
-      <ImportHistory imports={importHistory} loading={historyLoading} />
+      <ImportHistory
+        imports={importHistory}
+        loading={historyLoading}
+        onDelete={(jobId) => deleteMutation.mutate(jobId)}
+        deleting={deleteMutation.isPending}
+      />
     </div>
   );
 }

@@ -29,19 +29,22 @@ async def get_spending_by_category(
             Category.name,
             func.coalesce(Category.color, "").label("color"),
             func.coalesce(Category.icon, "").label("icon"),
-            func.sum(Transaction.amount).label("total_amount"),
+            func.sum(func.abs(Transaction.amount)).label("total_amount"),
             func.count(Transaction.id).label("transaction_count"),
         )
-        .join(Category, Transaction.category_id == Category.id)
+        .outerjoin(Category, Transaction.category_id == Category.id)
         .where(
             Transaction.user_id == user_id,
             Transaction.date >= start_date,
             Transaction.date <= end_date,
-            Transaction.amount > 0,
-            Category.is_income.is_(False),
+            Transaction.amount < 0,
+            case(
+                (Category.id.is_(None), True),
+                else_=Category.is_income.is_(False),
+            ),
         )
         .group_by(Category.id, Category.name, Category.color, Category.icon)
-        .order_by(func.sum(Transaction.amount).desc())
+        .order_by(func.sum(func.abs(Transaction.amount)).desc())
     )
 
     result = await db.execute(query)
@@ -55,9 +58,9 @@ async def get_spending_by_category(
     return [
         SpendingByCategory(
             category_id=row.id,
-            category_name=row.name,
-            category_color=row.color,
-            category_icon=row.icon,
+            category_name=row.name or "Uncategorized",
+            category_color=row.color or "#9ca3af",
+            category_icon=row.icon or "",
             total_amount=float(row.total_amount),
             transaction_count=row.transaction_count,
             percentage=round(float(row.total_amount) / grand_total * 100, 2)
@@ -87,13 +90,16 @@ async def get_spending_trends(
 ) -> list[SpendingTrend]:
     query = (
         select(Transaction.date, Transaction.amount)
-        .join(Category, Transaction.category_id == Category.id)
+        .outerjoin(Category, Transaction.category_id == Category.id)
         .where(
             Transaction.user_id == user_id,
             Transaction.date >= start_date,
             Transaction.date <= end_date,
-            Transaction.amount > 0,
-            Category.is_income.is_(False),
+            Transaction.amount < 0,
+            case(
+                (Category.id.is_(None), True),
+                else_=Category.is_income.is_(False),
+            ),
         )
         .order_by(Transaction.date)
     )
@@ -106,7 +112,7 @@ async def get_spending_trends(
         period = _period_key(row.date, granularity)
         if period not in grouped:
             grouped[period] = {"total_amount": 0.0, "transaction_count": 0}
-        grouped[period]["total_amount"] += float(row.amount)
+        grouped[period]["total_amount"] += abs(float(row.amount))
         grouped[period]["transaction_count"] += 1
 
     return [
@@ -136,12 +142,12 @@ async def get_budget_vs_actual(
     results = []
     for budget in budgets:
         spend_result = await db.execute(
-            select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+            select(func.coalesce(func.sum(func.abs(Transaction.amount)), 0)).where(
                 Transaction.user_id == user_id,
                 Transaction.category_id == budget.category_id,
                 Transaction.date >= start_date,
                 Transaction.date <= end_date,
-                Transaction.amount > 0,
+                Transaction.amount < 0,
             )
         )
         actual = float(spend_result.scalar() or 0)
@@ -200,10 +206,10 @@ async def get_monthly_comparison(
             grouped[month_key] = {"income": 0.0, "expenses": 0.0}
 
         amount = float(row.amount)
-        if row.is_income:
+        if amount > 0:
             grouped[month_key]["income"] += amount
-        elif amount > 0:
-            grouped[month_key]["expenses"] += amount
+        elif amount < 0:
+            grouped[month_key]["expenses"] += abs(amount)
 
     return [
         MonthlyComparison(
@@ -244,10 +250,10 @@ async def get_income_vs_expense(
             grouped[period] = {"income": 0.0, "expenses": 0.0}
 
         amount = float(row.amount)
-        if row.is_income:
+        if amount > 0:
             grouped[period]["income"] += amount
-        elif amount > 0:
-            grouped[period]["expenses"] += amount
+        elif amount < 0:
+            grouped[period]["expenses"] += abs(amount)
 
     return [
         IncomeVsExpense(
@@ -276,7 +282,7 @@ async def get_top_merchants(
     query = (
         select(
             normalized.label("description"),
-            func.sum(Transaction.amount).label("total_amount"),
+            func.sum(func.abs(Transaction.amount)).label("total_amount"),
             func.count(Transaction.id).label("transaction_count"),
         )
         .outerjoin(Category, Transaction.category_id == Category.id)
@@ -284,14 +290,14 @@ async def get_top_merchants(
             Transaction.user_id == user_id,
             Transaction.date >= start_date,
             Transaction.date <= end_date,
-            Transaction.amount > 0,
+            Transaction.amount < 0,
             case(
                 (Category.id.is_(None), True),
                 else_=Category.is_income.is_(False),
             ),
         )
         .group_by(normalized)
-        .order_by(func.sum(Transaction.amount).desc())
+        .order_by(func.sum(func.abs(Transaction.amount)).desc())
         .limit(limit)
     )
 

@@ -1,4 +1,6 @@
-import { FileUp } from "lucide-react";
+import { useState } from "react";
+import { FileUp, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { ImportJob } from "@/types/models";
@@ -6,6 +8,8 @@ import type { ImportJob } from "@/types/models";
 interface ImportHistoryProps {
   imports: ImportJob[];
   loading: boolean;
+  onDelete?: (jobId: string) => void;
+  deleting?: boolean;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -37,7 +41,9 @@ function formatDate(dateStr: string): string {
   });
 }
 
-export function ImportHistory({ imports, loading }: ImportHistoryProps) {
+export function ImportHistory({ imports, loading, onDelete, deleting }: ImportHistoryProps) {
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+
   if (loading) {
     return (
       <Card>
@@ -70,11 +76,10 @@ export function ImportHistory({ imports, loading }: ImportHistoryProps) {
                   <th className="py-3 pr-4 text-left font-medium">Filename</th>
                   <th className="py-3 pr-4 text-left font-medium">Date</th>
                   <th className="py-3 pr-4 text-left font-medium">Status</th>
-                  <th className="py-3 pr-4 text-right font-medium">
-                    Imported
-                  </th>
+                  <th className="py-3 pr-4 text-right font-medium">Imported</th>
                   <th className="py-3 pr-4 text-right font-medium">Skipped</th>
-                  <th className="py-3 text-right font-medium">Errors</th>
+                  <th className="py-3 pr-4 text-right font-medium">Errors</th>
+                  <th className="py-3 text-right font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -89,7 +94,40 @@ export function ImportHistory({ imports, loading }: ImportHistoryProps) {
                     </td>
                     <td className="py-3 pr-4 text-right">{job.imported_rows}</td>
                     <td className="py-3 pr-4 text-right">{job.skipped_rows}</td>
-                    <td className="py-3 text-right">{job.error_rows}</td>
+                    <td className="py-3 pr-4 text-right">{job.error_rows}</td>
+                    <td className="py-3 text-right">
+                      {confirmId === job.id ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            disabled={deleting}
+                            onClick={() => {
+                              onDelete?.(job.id);
+                              setConfirmId(null);
+                            }}
+                          >
+                            Confirm
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setConfirmId(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setConfirmId(job.id)}
+                          title="Delete import and its transactions"
+                        >
+                          <Trash2 className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

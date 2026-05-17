@@ -33,6 +33,11 @@ from app.routers import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from app.database import Base, engine
+    import app.models  # noqa: F401 — ensure all models are registered
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     yield
 
 

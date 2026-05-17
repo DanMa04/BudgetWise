@@ -41,7 +41,7 @@ async def list_presets():
 @router.post("/upload", response_model=AutoDetectResponse, status_code=status.HTTP_201_CREATED)
 async def upload_file(
     file: UploadFile,
-    account_id: uuid.UUID,
+    account_id: uuid.UUID | None = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -132,7 +132,7 @@ async def map_columns(
     await db.flush()
     await db.refresh(job)
 
-    return {"status": "ok", "job_id": str(job.id)}
+    return {"valid": True, "job_id": str(job.id)}
 
 
 @router.get("/{job_id}/preview", response_model=ImportPreviewResponse)
@@ -190,6 +190,35 @@ async def confirm_import(
     clear_file_data(job_id)
 
     return updated_job
+
+
+@router.delete("/{job_id}", status_code=status.HTTP_200_OK)
+async def delete_import(
+    job_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete an import job and all transactions it created."""
+    from app.models.transaction import Transaction
+
+    job = await _get_user_job(db, current_user.id, job_id)
+
+    # Delete all transactions created by this import
+    await db.execute(
+        select(Transaction).where(Transaction.import_job_id == job_id)
+    )
+    from sqlalchemy import delete as sa_delete
+
+    result = await db.execute(
+        sa_delete(Transaction).where(Transaction.import_job_id == job_id)
+    )
+    deleted_count = result.rowcount
+
+    # Delete the import job itself
+    await db.delete(job)
+    await db.flush()
+
+    return {"deleted_transactions": deleted_count, "job_id": str(job_id)}
 
 
 @router.get("/history", response_model=list[ImportJobRead])

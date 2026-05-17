@@ -59,8 +59,8 @@ export function SpendingPieChart({ data }: SpendingPieChartProps) {
             nameKey="category_name"
             paddingAngle={2}
           >
-            {data.map((entry) => (
-              <Cell key={entry.category_id} fill={entry.category_color} />
+            {data.map((entry, index) => (
+              <Cell key={entry.category_id ?? `uncategorized-${index}`} fill={entry.category_color} />
             ))}
           </Pie>
           <Tooltip content={<CustomTooltip />} />
