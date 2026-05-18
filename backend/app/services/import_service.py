@@ -405,14 +405,15 @@ async def execute_import(
             if "notes" in field_to_col:
                 notes = str(row.get(field_to_col["notes"], "")).strip() or None
 
-            # Check file category column
+            # Check file category column — match, fuzzy-match, or create
             category_id = None
             category_source = None
             if "category" in field_to_col:
                 raw_category = str(row.get(field_to_col["category"], "")).strip()
-                if raw_category and raw_category.lower() in category_map:
-                    category_id = category_map[raw_category.lower()]
-                    category_source = "import"
+                if raw_category:
+                    category_id, category_source = await _resolve_file_category(
+                        db, user_id, raw_category, category_map
+                    )
 
             transaction = Transaction(
                 user_id=user_id,
@@ -468,6 +469,110 @@ async def _build_category_map(
     )
     categories = result.scalars().all()
     return {cat.name.lower(): cat.id for cat in categories}
+
+
+def _fuzzy_match_category(
+    raw_name: str, category_map: dict[str, uuid.UUID]
+) -> uuid.UUID | None:
+    """Find the best fuzzy match for a category name.
+
+    Handles common variations: extra spaces, &/and, plural/singular,
+    "Food & Drink" vs "Dining Out", etc. Returns category_id if a
+    close match is found, None otherwise.
+    """
+    normalized = _normalize_category_name(raw_name)
+
+    if normalized in category_map:
+        return category_map[normalized]
+
+    normalized_map = {_normalize_category_name(k): v for k, v in category_map.items()}
+    if normalized in normalized_map:
+        return normalized_map[normalized]
+
+    # Token overlap: if 60%+ of words match, consider it a match
+    target_tokens = set(normalized.split())
+    if not target_tokens:
+        return None
+
+    best_match = None
+    best_score = 0.0
+    for existing_name, cat_id in normalized_map.items():
+        existing_tokens = set(existing_name.split())
+        if not existing_tokens:
+            continue
+        overlap = len(target_tokens & existing_tokens)
+        score = (2 * overlap) / (len(target_tokens) + len(existing_tokens))
+        if score > best_score:
+            best_score = score
+            best_match = cat_id
+
+    if best_score >= 0.6:
+        return best_match
+    return None
+
+
+def _normalize_category_name(name: str) -> str:
+    """Normalize a category name for comparison."""
+    result = name.lower().strip()
+    result = result.replace("&", "and")
+    result = result.replace("-", " ")
+    result = result.replace("_", " ")
+    result = re.sub(r"\s+", " ", result)
+    # Remove trailing 's' for simple plural handling
+    if result.endswith("s") and not result.endswith("ss"):
+        result = result[:-1]
+    return result
+
+
+def _title_case_category(name: str) -> str:
+    """Convert a category name to title case, preserving '&'."""
+    return " ".join(
+        word.capitalize() if word != "&" else "&"
+        for word in name.strip().split()
+    )
+
+
+async def _resolve_file_category(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    raw_category: str,
+    category_map: dict[str, uuid.UUID],
+) -> tuple[uuid.UUID | None, str | None]:
+    """Resolve a file category to a category_id, creating new categories as needed.
+
+    Returns (category_id, category_source) tuple.
+    """
+    if not raw_category:
+        return None, None
+
+    # Exact match (case-insensitive)
+    lower = raw_category.lower()
+    if lower in category_map:
+        return category_map[lower], "import"
+
+    # Fuzzy match against existing categories
+    fuzzy_id = _fuzzy_match_category(raw_category, category_map)
+    if fuzzy_id:
+        return fuzzy_id, "import"
+
+    # No match — create a new category for this user
+    display_name = _title_case_category(raw_category)
+    new_category = Category(
+        user_id=user_id,
+        name=display_name,
+        is_system=False,
+        is_income=False,
+        sort_order=99,
+    )
+    db.add(new_category)
+    await db.flush()
+    await db.refresh(new_category)
+
+    category_map[display_name.lower()] = new_category.id
+    logger.info(
+        "Created new category '%s' for user %s from import", display_name, user_id
+    )
+    return new_category.id, "import"
 
 
 async def _categorize_imported_transactions(

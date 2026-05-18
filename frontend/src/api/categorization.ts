@@ -117,6 +117,16 @@ export async function trainModel(token: string): Promise<void> {
   );
 }
 
+export async function confirmImportCategories(
+  token: string
+): Promise<{ confirmed: number }> {
+  return apiFetch<{ confirmed: number }>(
+    "/api/v1/categorization/confirm-imports",
+    { method: "POST" },
+    token
+  );
+}
+
 export async function getSubscriptionSuggestions(
   token: string
 ): Promise<SubscriptionSuggestion[]> {

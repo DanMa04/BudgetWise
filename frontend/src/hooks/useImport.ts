@@ -77,6 +77,8 @@ export function useConfirmImport() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["import-history"] });
+      queryClient.invalidateQueries({ queryKey: ["subscription-suggestions"] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
     },
   });
 }
@@ -94,6 +96,8 @@ export function useDeleteImport() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["import-history"] });
+      queryClient.invalidateQueries({ queryKey: ["subscription-suggestions"] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
     },
   });
 }

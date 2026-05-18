@@ -11,6 +11,7 @@ import {
   trainModel,
   getSubscriptionSuggestions,
   applySubscriptionSuggestion,
+  confirmImportCategories,
 } from "@/api/categorization";
 import type { CreateRuleData } from "@/types/models";
 
@@ -152,6 +153,22 @@ export function useTrainModel() {
   });
 }
 
+export function useConfirmImportCategories() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const token = await getToken();
+      if (!token) throw new Error("Not authenticated");
+      return confirmImportCategories(token);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    },
+  });
+}
+
 export function useSubscriptionSuggestions() {
   const { getToken } = useAuth();
 
@@ -162,6 +179,7 @@ export function useSubscriptionSuggestions() {
       if (!token) throw new Error("Not authenticated");
       return getSubscriptionSuggestions(token);
     },
+    staleTime: 30_000,
   });
 }
 

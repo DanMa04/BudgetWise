@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, Plus } from "lucide-react";
+import { AlertTriangle, CheckCheck, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TransactionList } from "@/components/transactions/TransactionList";
 import { TransactionFilters } from "@/components/transactions/TransactionFilters";
 import { TransactionForm } from "@/components/transactions/TransactionForm";
 import { SubscriptionSuggestions } from "@/components/transactions/SubscriptionSuggestions";
 import { useTransactions, useCreateTransaction } from "@/hooks/useTransactions";
+import { useConfirmImportCategories } from "@/hooks/useCategorization";
 import { useCategories } from "@/hooks/useCategories";
 import { useAccounts } from "@/hooks/useAccounts";
 import type { TransactionFilters as FiltersType } from "@/types/models";
@@ -23,11 +24,16 @@ export function TransactionsPage() {
   const { data: categories = [] } = useCategories();
   const { data: accounts = [] } = useAccounts();
   const createTransaction = useCreateTransaction();
+  const confirmImports = useConfirmImportCategories();
 
   const items = data?.items;
   const uncategorizedCount = useMemo(() => {
     if (!items) return 0;
     return items.filter((t) => !t.category_id).length;
+  }, [items]);
+  const importCount = useMemo(() => {
+    if (!items) return 0;
+    return items.filter((t) => t.category_source === "import").length;
   }, [items]);
 
   function showUncategorized() {
@@ -50,6 +56,24 @@ export function TransactionsPage() {
       </div>
 
       <SubscriptionSuggestions />
+
+      {importCount > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-purple-300 bg-purple-50 px-4 py-3 dark:border-purple-700 dark:bg-purple-950/30">
+          <CheckCheck className="h-4 w-4 text-purple-600" />
+          <span className="flex-1 text-sm text-purple-800 dark:text-purple-200">
+            {importCount} transaction{importCount !== 1 && "s"} categorized from
+            import — confirm to clear the Import badges.
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={confirmImports.isPending}
+            onClick={() => confirmImports.mutate()}
+          >
+            {confirmImports.isPending ? "Confirming…" : "Confirm All"}
+          </Button>
+        </div>
+      )}
 
       {uncategorizedCount > 0 && filters.category_id !== "__uncategorized__" && (
         <div className="flex items-center gap-3 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 dark:border-yellow-700 dark:bg-yellow-950/30">

@@ -126,6 +126,27 @@ async def trigger_training(
     return {"status": "trained"}
 
 
+@router.post("/confirm-imports")
+async def confirm_import_categories(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from sqlalchemy import update
+
+    from app.models.transaction import Transaction
+
+    result = await db.execute(
+        update(Transaction)
+        .where(
+            Transaction.user_id == current_user.id,
+            Transaction.category_source == "import",
+        )
+        .values(category_source="manual")
+    )
+    await db.commit()
+    return {"confirmed": result.rowcount}
+
+
 @router.get(
     "/subscription-suggestions",
     response_model=list[SubscriptionSuggestion],
