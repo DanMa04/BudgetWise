@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { TransactionList } from "@/components/transactions/TransactionList";
 import { TransactionFilters } from "@/components/transactions/TransactionFilters";
 import { TransactionForm } from "@/components/transactions/TransactionForm";
+import { SubscriptionSuggestions } from "@/components/transactions/SubscriptionSuggestions";
 import { useTransactions, useCreateTransaction } from "@/hooks/useTransactions";
 import { useCategories } from "@/hooks/useCategories";
 import { useAccounts } from "@/hooks/useAccounts";
@@ -47,6 +48,8 @@ export function TransactionsPage() {
           Add Transaction
         </Button>
       </div>
+
+      <SubscriptionSuggestions />
 
       {uncategorizedCount > 0 && filters.category_id !== "__uncategorized__" && (
         <div className="flex items-center gap-3 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 dark:border-yellow-700 dark:bg-yellow-950/30">

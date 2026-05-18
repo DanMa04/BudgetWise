@@ -7,6 +7,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.categorization_rule import (
+    ApplySubscriptionRequest,
     BulkCategorizeRequest,
     CategorizationRequest,
     CategorizationResponse,
@@ -14,6 +15,7 @@ from app.schemas.categorization_rule import (
     RuleCreate,
     RuleRead,
     RuleUpdate,
+    SubscriptionSuggestion,
 )
 from app.services.categorization_service import (
     bulk_categorize_transactions,
@@ -24,6 +26,10 @@ from app.services.categorization_service import (
     record_correction,
     train_user_model,
     update_rule,
+)
+from app.services.subscription_service import (
+    apply_subscription_suggestion,
+    detect_subscriptions,
 )
 
 router = APIRouter(prefix="/categorization", tags=["categorization"])
@@ -118,3 +124,32 @@ async def trigger_training(
     if not success:
         return {"status": "insufficient_data", "minimum_required": 50}
     return {"status": "trained"}
+
+
+@router.get(
+    "/subscription-suggestions",
+    response_model=list[SubscriptionSuggestion],
+)
+async def get_subscription_suggestions(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await detect_subscriptions(db, current_user.id)
+
+
+@router.post("/subscription-suggestions/apply")
+async def apply_subscription(
+    data: ApplySubscriptionRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    count = await apply_subscription_suggestion(
+        db,
+        current_user.id,
+        data.transaction_ids,
+        data.category_id,
+        data.merchant_pattern,
+        data.create_rule,
+    )
+    await db.commit()
+    return {"updated": count}

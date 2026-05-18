@@ -3,6 +3,7 @@ import type {
   CategorizationRule,
   CategorizationResponse,
   CreateRuleData,
+  SubscriptionSuggestion,
 } from "@/types/models";
 
 export async function getRules(
@@ -112,6 +113,35 @@ export async function trainModel(token: string): Promise<void> {
   await apiFetch<void>(
     "/api/v1/categorization/train",
     { method: "POST" },
+    token
+  );
+}
+
+export async function getSubscriptionSuggestions(
+  token: string
+): Promise<SubscriptionSuggestion[]> {
+  return apiFetch<SubscriptionSuggestion[]>(
+    "/api/v1/categorization/subscription-suggestions",
+    {},
+    token
+  );
+}
+
+export async function applySubscriptionSuggestion(
+  data: {
+    transaction_ids: string[];
+    category_id: string;
+    merchant_pattern: string;
+    create_rule: boolean;
+  },
+  token: string
+): Promise<{ updated: number }> {
+  return apiFetch<{ updated: number }>(
+    "/api/v1/categorization/subscription-suggestions/apply",
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    },
     token
   );
 }

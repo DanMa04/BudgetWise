@@ -9,6 +9,8 @@ import {
   correctTransaction,
   bulkCategorize,
   trainModel,
+  getSubscriptionSuggestions,
+  applySubscriptionSuggestion,
 } from "@/api/categorization";
 import type { CreateRuleData } from "@/types/models";
 
@@ -146,6 +148,41 @@ export function useTrainModel() {
       const token = await getToken();
       if (!token) throw new Error("Not authenticated");
       return trainModel(token);
+    },
+  });
+}
+
+export function useSubscriptionSuggestions() {
+  const { getToken } = useAuth();
+
+  return useQuery({
+    queryKey: ["subscription-suggestions"],
+    queryFn: async () => {
+      const token = await getToken();
+      if (!token) throw new Error("Not authenticated");
+      return getSubscriptionSuggestions(token);
+    },
+  });
+}
+
+export function useApplySubscription() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      transaction_ids: string[];
+      category_id: string;
+      merchant_pattern: string;
+      create_rule: boolean;
+    }) => {
+      const token = await getToken();
+      if (!token) throw new Error("Not authenticated");
+      return applySubscriptionSuggestion(data, token);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["subscription-suggestions"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
     },
   });
 }

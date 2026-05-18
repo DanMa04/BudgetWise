@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 
 class TransactionCreate(BaseModel):
-    account_id: uuid.UUID
+    account_id: uuid.UUID | None = None
     category_id: uuid.UUID | None = None
     date: date_type
     amount: Decimal
@@ -23,7 +23,7 @@ class TransactionCreate(BaseModel):
 class TransactionRead(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
-    account_id: uuid.UUID
+    account_id: uuid.UUID | None
     category_id: uuid.UUID | None
     date: date_type
     amount: Decimal

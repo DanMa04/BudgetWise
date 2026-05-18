@@ -29,11 +29,16 @@ async def get_transactions(
     per_page: int = 50,
     sort_by: str = "date",
     sort_dir: str = "desc",
+    uncategorized_only: bool = False,
 ) -> tuple[list[Transaction], int]:
     base_query = select(Transaction).where(Transaction.user_id == user_id)
     count_query = select(func.count()).select_from(Transaction).where(
         Transaction.user_id == user_id
     )
+
+    if uncategorized_only:
+        base_query = base_query.where(Transaction.category_id.is_(None))
+        count_query = count_query.where(Transaction.category_id.is_(None))
 
     # Apply filters
     if filters.date_from is not None:

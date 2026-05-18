@@ -268,6 +268,19 @@ export interface CreateRuleData {
   priority?: number;
 }
 
+export interface SubscriptionSuggestion {
+  merchant: string;
+  amount: number;
+  period: string;
+  avg_interval_days: number;
+  occurrence_count: number;
+  first_seen: string;
+  last_seen: string;
+  next_expected: string;
+  transaction_ids: string[];
+  subscription_category_id: string | null;
+}
+
 export interface Goal {
   id: string;
   user_id: string;

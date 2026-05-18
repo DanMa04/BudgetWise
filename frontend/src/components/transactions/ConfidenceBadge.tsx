@@ -21,6 +21,28 @@ export function ConfidenceBadge({ confidence, source }: ConfidenceBadgeProps) {
     );
   }
 
+  if (source === "import") {
+    return (
+      <Badge
+        className="bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-100"
+        title="Categorized from import file"
+      >
+        Import
+      </Badge>
+    );
+  }
+
+  if (source === "subscription") {
+    return (
+      <Badge
+        className="bg-indigo-100 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+        title="Detected as recurring subscription"
+      >
+        Recurring
+      </Badge>
+    );
+  }
+
   if (source === "ml" && confidence !== null && confidence >= 0.8) {
     return (
       <Badge

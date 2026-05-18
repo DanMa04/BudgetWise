@@ -40,3 +40,20 @@ docker compose up                              # Production
 - Tests: pytest (backend), Vitest + React Testing Library (frontend), Playwright (E2E)
 - Auth: Clerk (JWT verification on backend, @clerk/clerk-react on frontend)
 - DB: PostgreSQL, Alembic migrations, UUID primary keys
+
+## Key Observations & Decisions
+
+### Banking sign convention (2026-05-17)
+App uses standard banking sign convention: **negative = expense, positive = income**. This was switched from an inverted convention mid-development. All layers are aligned: import service stores amounts as-is from files (debits → negative, credits → positive), report queries filter `amount < 0` for expenses and use `func.abs()` for display, budget spend calculation uses `amount < 0` with `func.abs()`, frontend colors `amount < 0` red and `>= 0` green, and TransactionForm auto-negates amounts for expense categories. When writing tests, expense transactions must use negative amounts.
+
+### Import flow requires OUTER JOINs (2026-05-17)
+Dashboard report queries must use OUTER JOINs (not INNER JOINs) on Category, because imported transactions often have `category_id = NULL`. INNER JOINs silently exclude all uncategorized transactions from reports. The spending_by_category query uses a CASE expression to include uncategorized rows while still filtering out income categories.
+
+### DB bootstrapping — create_all in lifespan (2026-05-17)
+The app uses `Base.metadata.create_all` in the FastAPI lifespan handler to ensure tables exist on startup. This supplements Alembic migrations for dev — only the notification tables have a proper Alembic migration (001). Core tables (users, transactions, accounts, etc.) are created by SQLAlchemy metadata. This should be revisited when moving to production.
+
+### PostgreSQL boolean defaults (2026-05-17)
+Alembic migrations must use `sa.text("true")`/`sa.text("false")` for boolean column defaults — not `sa.text("1")`/`sa.text("0")` which is SQLite syntax. This caused migration failures on PostgreSQL.
+
+### Auto-categorization seeding (2026-05-17)
+Default categorization rules (~100 merchant→category mappings) are seeded on first user creation and on first import if none exist. This ensures imported transactions get reasonable categories immediately without requiring ML training data. Rules cover major merchants across Groceries, Dining, Transport, Shopping, Subscriptions, etc.

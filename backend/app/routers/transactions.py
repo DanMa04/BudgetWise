@@ -42,7 +42,7 @@ async def list_transactions(
     per_page: int = Query(50, ge=1, le=100),
     date_from: date | None = None,
     date_to: date | None = None,
-    category_id: uuid.UUID | None = None,
+    category_id: str | None = None,
     account_id: uuid.UUID | None = None,
     min_amount: Decimal | None = None,
     max_amount: Decimal | None = None,
@@ -52,10 +52,17 @@ async def list_transactions(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    parsed_category_id = None
+    uncategorized_only = False
+    if category_id == "__uncategorized__":
+        uncategorized_only = True
+    elif category_id is not None:
+        parsed_category_id = uuid.UUID(category_id)
+
     filters = TransactionFilter(
         date_from=date_from,
         date_to=date_to,
-        category_id=category_id,
+        category_id=parsed_category_id,
         account_id=account_id,
         min_amount=min_amount,
         max_amount=max_amount,
@@ -64,6 +71,7 @@ async def list_transactions(
     items, total = await get_transactions(
         db, current_user.id, filters, page=page, per_page=per_page,
         sort_by=sort_by, sort_dir=sort_dir,
+        uncategorized_only=uncategorized_only,
     )
     total_pages = math.ceil(total / per_page) if total > 0 else 0
     return {

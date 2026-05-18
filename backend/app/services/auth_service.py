@@ -50,8 +50,8 @@ async def get_or_create_user(
     if user is None:
         user = User(
             auth_provider_id=auth_provider_id,
-            email=email,
-            display_name=display_name,
+            email=email or None,
+            display_name=display_name or None,
         )
         db.add(user)
         await db.flush()

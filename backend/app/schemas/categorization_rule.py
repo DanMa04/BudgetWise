@@ -50,3 +50,23 @@ class CategorizationResponse(BaseModel):
 class BulkCategorizeRequest(BaseModel):
     transaction_ids: list[uuid.UUID]
     category_id: uuid.UUID
+
+
+class SubscriptionSuggestion(BaseModel):
+    merchant: str
+    amount: float
+    period: str
+    avg_interval_days: float
+    occurrence_count: int
+    first_seen: str
+    last_seen: str
+    next_expected: str
+    transaction_ids: list[str]
+    subscription_category_id: str | None
+
+
+class ApplySubscriptionRequest(BaseModel):
+    transaction_ids: list[uuid.UUID]
+    category_id: uuid.UUID
+    merchant_pattern: str
+    create_rule: bool = True
