@@ -69,6 +69,7 @@ export interface Budget {
   end_date: string | null;
   is_active: boolean;
   rollover: boolean;
+  is_locked: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -130,6 +131,59 @@ export interface CreateBudgetData {
   start_date: string;
   end_date?: string;
   rollover?: boolean;
+}
+
+export interface CategoryAllocation {
+  category_id: string;
+  category_name: string;
+  category_color: string | null;
+  category_icon: string | null;
+  current_budget_amount: number | null;
+  average_monthly_spend: number;
+  is_locked: boolean;
+  budget_id: string | null;
+}
+
+export interface GoalAllocation {
+  goal_id: string;
+  name: string;
+  color: string | null;
+  target_amount: number;
+  current_amount: number;
+  monthly_rate: number;
+  planned_monthly_contribution: number | null;
+  target_date: string | null;
+}
+
+export interface AllocationData {
+  suggested_monthly_income: number;
+  monthly_income_override: number | null;
+  categories: CategoryAllocation[];
+  goals: GoalAllocation[];
+}
+
+export interface BulkBudgetItem {
+  category_id: string;
+  amount: number;
+  is_locked: boolean;
+}
+
+export interface GoalContributionItem {
+  goal_id: string;
+  monthly_amount: number;
+}
+
+export interface BulkBudgetSave {
+  monthly_income: number;
+  period_type: string;
+  allocations: BulkBudgetItem[];
+  goal_contributions: GoalContributionItem[];
+}
+
+export interface BulkBudgetResponse {
+  created: number;
+  updated: number;
+  deactivated: number;
 }
 
 export interface CreateAccountData {
@@ -306,6 +360,7 @@ export interface Goal {
   color: string | null;
   target_date: string | null;
   linked_account_id: string | null;
+  planned_monthly_contribution: number | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

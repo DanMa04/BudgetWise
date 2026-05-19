@@ -6,8 +6,10 @@ import {
   getBudgetSummary,
   updateBudget,
   deleteBudget,
+  getAllocationData,
+  saveBulkBudget,
 } from "@/api/budgets";
-import type { CreateBudgetData } from "@/types/models";
+import type { BulkBudgetSave, CreateBudgetData } from "@/types/models";
 
 export function useBudgets() {
   const { getToken } = useAuth();
@@ -88,6 +90,38 @@ export function useDeleteBudget() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["budgets"] });
       queryClient.invalidateQueries({ queryKey: ["budget-summary"] });
+    },
+  });
+}
+
+export function useAllocationData() {
+  const { getToken } = useAuth();
+
+  return useQuery({
+    queryKey: ["allocation-data"],
+    queryFn: async () => {
+      const token = await getToken();
+      if (!token) throw new Error("Not authenticated");
+      return getAllocationData(token);
+    },
+  });
+}
+
+export function useSaveBulkBudget() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: BulkBudgetSave) => {
+      const token = await getToken();
+      if (!token) throw new Error("Not authenticated");
+      return saveBulkBudget(data, token);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["budget-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["allocation-data"] });
+      queryClient.invalidateQueries({ queryKey: ["goals"] });
     },
   });
 }

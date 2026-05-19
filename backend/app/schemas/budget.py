@@ -28,6 +28,7 @@ class BudgetRead(BaseModel):
     end_date: date | None
     is_active: bool
     rollover: bool
+    is_locked: bool
     created_at: datetime
     updated_at: datetime
 
@@ -54,3 +55,56 @@ class BudgetSummary(BaseModel):
     total_spent: float
     total_remaining: float
     budgets: list[BudgetWithSpend]
+
+
+class CategoryAllocation(BaseModel):
+    category_id: uuid.UUID
+    category_name: str
+    category_color: str | None
+    category_icon: str | None
+    current_budget_amount: float | None
+    average_monthly_spend: float
+    is_locked: bool
+    budget_id: uuid.UUID | None
+
+
+class GoalAllocation(BaseModel):
+    goal_id: uuid.UUID
+    name: str
+    color: str | None
+    target_amount: float
+    current_amount: float
+    monthly_rate: float
+    planned_monthly_contribution: float | None
+    target_date: date | None
+
+
+class AllocationData(BaseModel):
+    suggested_monthly_income: float
+    monthly_income_override: float | None
+    categories: list[CategoryAllocation]
+    goals: list[GoalAllocation]
+
+
+class BulkBudgetItem(BaseModel):
+    category_id: uuid.UUID
+    amount: float
+    is_locked: bool = False
+
+
+class GoalContributionItem(BaseModel):
+    goal_id: uuid.UUID
+    monthly_amount: float
+
+
+class BulkBudgetSave(BaseModel):
+    monthly_income: float
+    period_type: str = "monthly"
+    allocations: list[BulkBudgetItem]
+    goal_contributions: list[GoalContributionItem] = []
+
+
+class BulkBudgetResponse(BaseModel):
+    created: int
+    updated: int
+    deactivated: int

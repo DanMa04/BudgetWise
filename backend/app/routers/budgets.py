@@ -7,18 +7,23 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.budget import (
+    AllocationData,
     BudgetCreate,
     BudgetRead,
     BudgetSummary,
     BudgetUpdate,
     BudgetWithSpend,
+    BulkBudgetResponse,
+    BulkBudgetSave,
 )
 from app.services.budget_service import (
     create_budget,
     delete_budget,
+    get_allocation_data,
     get_budget,
     get_budget_summary,
     get_budgets_with_spend,
+    save_bulk_allocation,
     update_budget,
 )
 
@@ -49,6 +54,23 @@ async def budget_summary(
     db: AsyncSession = Depends(get_db),
 ):
     return await get_budget_summary(db, current_user.id)
+
+
+@router.get("/allocation-data", response_model=AllocationData)
+async def allocation_data(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await get_allocation_data(db, current_user.id)
+
+
+@router.put("/bulk", response_model=BulkBudgetResponse)
+async def bulk_save(
+    data: BulkBudgetSave,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await save_bulk_allocation(db, current_user.id, data)
 
 
 @router.get("/{budget_id}", response_model=BudgetRead)

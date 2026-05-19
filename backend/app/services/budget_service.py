@@ -1,17 +1,26 @@
 import uuid
 from datetime import date, timedelta
+from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.budget import Budget
+from app.models.category import Category
+from app.models.goal import Goal
 from app.models.transaction import Transaction
+from app.models.user import User
 from app.schemas.budget import (
+    AllocationData,
     BudgetCreate,
     BudgetRead,
     BudgetSummary,
     BudgetUpdate,
     BudgetWithSpend,
+    BulkBudgetResponse,
+    BulkBudgetSave,
+    CategoryAllocation,
+    GoalAllocation,
 )
 
 
@@ -164,3 +173,201 @@ async def delete_budget(
     await db.delete(budget)
     await db.flush()
     return True
+
+
+async def get_allocation_data(
+    db: AsyncSession, user_id: uuid.UUID
+) -> AllocationData:
+    today = date.today()
+    three_months_ago = today.replace(day=1) - timedelta(days=90)
+
+    # Suggested monthly income: average of positive transactions over last 3 full months
+    income_result = await db.execute(
+        select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+            Transaction.user_id == user_id,
+            Transaction.amount > 0,
+            Transaction.date >= three_months_ago,
+            Transaction.date <= today,
+        )
+    )
+    total_income = float(income_result.scalar() or 0)
+    months_span = max(
+        1, ((today.year - three_months_ago.year) * 12 + today.month - three_months_ago.month)
+    )
+    suggested_monthly_income = round(total_income / months_span, 2)
+
+    # User's override
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one()
+    monthly_income_override = (
+        float(user.monthly_income_override) if user.monthly_income_override else None
+    )
+
+    # Expense categories with existing budgets and average monthly spend
+    categories_result = await db.execute(
+        select(Category).where(
+            Category.user_id == user_id,
+            Category.is_income.is_(False),
+        ).order_by(Category.sort_order, Category.name)
+    )
+    categories = list(categories_result.scalars().all())
+
+    # Existing monthly budgets keyed by category_id
+    budgets_result = await db.execute(
+        select(Budget).where(
+            Budget.user_id == user_id,
+            Budget.period_type == "monthly",
+            Budget.is_active.is_(True),
+        )
+    )
+    budgets_by_cat: dict[uuid.UUID, Budget] = {
+        b.category_id: b for b in budgets_result.scalars().all()
+    }
+
+    # Average monthly spend per category (expenses are negative, use abs)
+    avg_spend_result = await db.execute(
+        select(
+            Transaction.category_id,
+            func.abs(func.sum(Transaction.amount)).label("total_spend"),
+        )
+        .where(
+            Transaction.user_id == user_id,
+            Transaction.amount < 0,
+            Transaction.date >= three_months_ago,
+            Transaction.date <= today,
+            Transaction.category_id.isnot(None),
+        )
+        .group_by(Transaction.category_id)
+    )
+    avg_spend_map: dict[uuid.UUID, float] = {}
+    for row in avg_spend_result.all():
+        avg_spend_map[row.category_id] = round(float(row.total_spend) / months_span, 2)
+
+    category_allocations = []
+    for cat in categories:
+        budget = budgets_by_cat.get(cat.id)
+        category_allocations.append(
+            CategoryAllocation(
+                category_id=cat.id,
+                category_name=cat.name,
+                category_color=cat.color,
+                category_icon=cat.icon,
+                current_budget_amount=float(budget.amount) if budget else None,
+                average_monthly_spend=avg_spend_map.get(cat.id, 0.0),
+                is_locked=budget.is_locked if budget else False,
+                budget_id=budget.id if budget else None,
+            )
+        )
+
+    # Active goals
+    goals_result = await db.execute(
+        select(Goal).where(Goal.user_id == user_id, Goal.is_active.is_(True))
+    )
+    goals = list(goals_result.scalars().all())
+
+    goal_allocations = []
+    for goal in goals:
+        remaining = float(goal.target_amount) - float(goal.current_amount)
+        if goal.target_date and goal.target_date > today:
+            months_left = max(
+                1,
+                (goal.target_date.year - today.year) * 12
+                + goal.target_date.month - today.month,
+            )
+            monthly_rate = round(remaining / months_left, 2)
+        else:
+            monthly_rate = 0.0
+
+        goal_allocations.append(
+            GoalAllocation(
+                goal_id=goal.id,
+                name=goal.name,
+                color=goal.color,
+                target_amount=float(goal.target_amount),
+                current_amount=float(goal.current_amount),
+                monthly_rate=monthly_rate,
+                planned_monthly_contribution=(
+                    float(goal.planned_monthly_contribution)
+                    if goal.planned_monthly_contribution
+                    else None
+                ),
+                target_date=goal.target_date,
+            )
+        )
+
+    return AllocationData(
+        suggested_monthly_income=suggested_monthly_income,
+        monthly_income_override=monthly_income_override,
+        categories=category_allocations,
+        goals=goal_allocations,
+    )
+
+
+async def save_bulk_allocation(
+    db: AsyncSession, user_id: uuid.UUID, data: BulkBudgetSave
+) -> BulkBudgetResponse:
+    # Update user's monthly income override
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one()
+    user.monthly_income_override = Decimal(str(data.monthly_income))
+
+    # Get existing active monthly budgets
+    existing_result = await db.execute(
+        select(Budget).where(
+            Budget.user_id == user_id,
+            Budget.period_type == data.period_type,
+            Budget.is_active.is_(True),
+        )
+    )
+    existing_by_cat: dict[uuid.UUID, Budget] = {
+        b.category_id: b for b in existing_result.scalars().all()
+    }
+
+    today = date.today()
+    created = 0
+    updated = 0
+    allocation_cat_ids = {item.category_id for item in data.allocations}
+
+    for item in data.allocations:
+        existing = existing_by_cat.get(item.category_id)
+        if existing:
+            existing.amount = Decimal(str(item.amount))
+            existing.is_locked = item.is_locked
+            updated += 1
+        else:
+            # Need category name for the budget name
+            cat_result = await db.execute(
+                select(Category.name).where(Category.id == item.category_id)
+            )
+            cat_name = cat_result.scalar() or "Budget"
+            new_budget = Budget(
+                user_id=user_id,
+                category_id=item.category_id,
+                name=cat_name,
+                amount=Decimal(str(item.amount)),
+                period_type=data.period_type,
+                start_date=today.replace(day=1),
+                is_active=True,
+                is_locked=item.is_locked,
+            )
+            db.add(new_budget)
+            created += 1
+
+    # Deactivate budgets not in the allocation list
+    deactivated = 0
+    for cat_id, budget in existing_by_cat.items():
+        if cat_id not in allocation_cat_ids:
+            budget.is_active = False
+            deactivated += 1
+
+    # Update goal contributions
+    for gc in data.goal_contributions:
+        goal_result = await db.execute(
+            select(Goal).where(Goal.id == gc.goal_id, Goal.user_id == user_id)
+        )
+        goal = goal_result.scalar_one_or_none()
+        if goal:
+            goal.planned_monthly_contribution = Decimal(str(gc.monthly_amount))
+
+    await db.flush()
+    return BulkBudgetResponse(created=created, updated=updated, deactivated=deactivated)

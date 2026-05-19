@@ -3,17 +3,14 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BudgetOverview } from "@/components/budgets/BudgetOverview";
-import { BudgetForm } from "@/components/budgets/BudgetForm";
-import { useBudgets, useCreateBudget, useBudgetSummary } from "@/hooks/useBudgets";
-import { useCategories } from "@/hooks/useCategories";
+import { ZeroBudgetDialog } from "@/components/budgets/ZeroBudgetDialog";
+import { useBudgets, useBudgetSummary } from "@/hooks/useBudgets";
 import { formatCurrency } from "@/lib/formatters";
 
 export function BudgetsPage() {
-  const [formOpen, setFormOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const { data: budgets = [], isLoading } = useBudgets();
   const { data: summary } = useBudgetSummary();
-  const { data: categories = [] } = useCategories();
-  const createBudget = useCreateBudget();
 
   return (
     <div className="space-y-6">
@@ -24,7 +21,7 @@ export function BudgetsPage() {
             Set and monitor your spending limits.
           </p>
         </div>
-        <Button onClick={() => setFormOpen(true)}>
+        <Button onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4" />
           Add Budget
         </Button>
@@ -79,15 +76,9 @@ export function BudgetsPage() {
 
       <BudgetOverview budgets={budgets} loading={isLoading} />
 
-      <BudgetForm
-        open={formOpen}
-        onClose={() => setFormOpen(false)}
-        onSubmit={(data) => {
-          createBudget.mutate(data, {
-            onSuccess: () => setFormOpen(false),
-          });
-        }}
-        categories={categories}
+      <ZeroBudgetDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
       />
     </div>
   );

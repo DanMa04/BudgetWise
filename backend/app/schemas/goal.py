@@ -31,6 +31,7 @@ class GoalRead(BaseModel):
     color: str | None
     target_date: date | None
     linked_account_id: uuid.UUID | None
+    planned_monthly_contribution: Decimal | None
     is_active: bool
     created_at: datetime
     updated_at: datetime
