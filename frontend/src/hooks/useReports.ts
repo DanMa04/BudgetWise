@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-react";
 import {
   fetchSpendingByCategory,
+  fetchSpendingByCategoryOverTime,
   fetchSpendingTrends,
   fetchBudgetVsActual,
   fetchMonthlyComparison,
@@ -18,6 +19,24 @@ export function useSpendingByCategory(startDate: string, endDate: string) {
       const token = await getToken();
       if (!token) throw new Error("Not authenticated");
       return fetchSpendingByCategory(token, startDate, endDate);
+    },
+  });
+}
+
+export function useSpendingByCategoryOverTime(
+  startDate: string,
+  endDate: string,
+  granularity: string,
+  categoryIds?: string[],
+) {
+  const { getToken } = useAuth();
+
+  return useQuery({
+    queryKey: ["spending-by-category-over-time", startDate, endDate, granularity, categoryIds],
+    queryFn: async () => {
+      const token = await getToken();
+      if (!token) throw new Error("Not authenticated");
+      return fetchSpendingByCategoryOverTime(token, startDate, endDate, granularity, categoryIds);
     },
   });
 }

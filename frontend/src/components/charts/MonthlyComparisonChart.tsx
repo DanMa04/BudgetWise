@@ -61,8 +61,8 @@ export function MonthlyComparisonChart({ data }: MonthlyComparisonChartProps) {
           />
           <Tooltip content={<CustomTooltip />} />
           <Legend />
-          <Bar dataKey="income" name="Income" fill="#22c55e" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="expenses" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="income" name="Income" fill="#22c55e" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={600} animationEasing="ease-in-out" />
+          <Bar dataKey="expenses" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={600} animationEasing="ease-in-out" />
           <Line
             type="monotone"
             dataKey="net"
@@ -70,6 +70,9 @@ export function MonthlyComparisonChart({ data }: MonthlyComparisonChartProps) {
             stroke="#3b82f6"
             strokeWidth={2}
             dot={{ r: 3 }}
+            isAnimationActive={true}
+            animationDuration={600}
+            animationEasing="ease-in-out"
           />
         </ComposedChart>
       </ResponsiveContainer>

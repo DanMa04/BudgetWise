@@ -63,8 +63,8 @@ export function BudgetVsActualBar({ data }: BudgetVsActualBarProps) {
             width={60}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="budgeted_amount" name="Budgeted" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="actual_amount" name="Actual" radius={[4, 4, 0, 0]}>
+          <Bar dataKey="budgeted_amount" name="Budgeted" fill="#3b82f6" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={600} animationEasing="ease-in-out" />
+          <Bar dataKey="actual_amount" name="Actual" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={600} animationEasing="ease-in-out">
             {data.map((entry) => (
               <Cell
                 key={entry.budget_id}

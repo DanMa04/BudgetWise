@@ -5,16 +5,20 @@ import { TrendLineChart } from "@/components/charts/TrendLineChart";
 import { BudgetVsActualBar } from "@/components/charts/BudgetVsActualBar";
 import { MonthlyComparisonChart } from "@/components/charts/MonthlyComparisonChart";
 import { TopMerchantsChart } from "@/components/charts/TopMerchantsChart";
+import { CategoryOverTimeChart } from "@/components/charts/CategoryOverTimeChart";
 import {
   useSpendingByCategory,
+  useSpendingByCategoryOverTime,
   useSpendingTrends,
   useBudgetVsActual,
   useMonthlyComparison,
   useTopMerchants,
 } from "@/hooks/useReports";
+import type { SpendingByCategory } from "@/types/models";
 
 type Preset = "7d" | "30d" | "90d" | "6m" | "1y" | "custom";
 type Tab = "spending" | "budgets" | "income" | "trends";
+type ChartType = "area" | "bar" | "line";
 
 function getDateRange(preset: Preset): { startDate: string; endDate: string } {
   const end = new Date();
@@ -62,6 +66,22 @@ function getMonthsForPreset(preset: Preset): number {
   }
 }
 
+function getDefaultGranularity(preset: Preset): string {
+  switch (preset) {
+    case "7d":
+      return "daily";
+    case "30d":
+      return "daily";
+    case "90d":
+      return "weekly";
+    case "6m":
+    case "1y":
+      return "monthly";
+    default:
+      return "monthly";
+  }
+}
+
 const PRESETS: { label: string; value: Preset }[] = [
   { label: "7D", value: "7d" },
   { label: "30D", value: "30d" },
@@ -78,12 +98,56 @@ const TABS: { label: string; value: Tab }[] = [
   { label: "Trends", value: "trends" },
 ];
 
+const CHART_TYPES: { label: string; value: ChartType }[] = [
+  { label: "Area", value: "area" },
+  { label: "Bar", value: "bar" },
+  { label: "Line", value: "line" },
+];
+
+function GranularityToggle({
+  granularity,
+  onChange,
+}: {
+  granularity: string;
+  onChange: (g: string) => void;
+}) {
+  return (
+    <div className="flex rounded-lg border bg-muted/30 p-1">
+      {["daily", "weekly", "monthly"].map((g) => (
+        <button
+          key={g}
+          onClick={() => onChange(g)}
+          className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition-colors ${
+            granularity === g
+              ? "bg-background shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {g}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function LoadingSpinner() {
+  return (
+    <div className="flex h-64 items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
+    </div>
+  );
+}
+
 export function ReportsPage() {
   const [preset, setPreset] = useState<Preset>("30d");
   const [activeTab, setActiveTab] = useState<Tab>("spending");
   const [granularity, setGranularity] = useState("daily");
+  const [chartType, setChartType] = useState<ChartType>("area");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const [highlightedCategory, setHighlightedCategory] = useState<string | null>(null);
+  const [drillDownCategory, setDrillDownCategory] = useState<SpendingByCategory | null>(null);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
 
   const { startDate, endDate } = useMemo(() => {
     if (preset === "custom" && customStart && customEnd) {
@@ -96,6 +160,13 @@ export function ReportsPage() {
 
   const { data: spendingByCategory, isLoading: loadingCategory } =
     useSpendingByCategory(startDate, endDate);
+  const { data: categoryOverTime, isLoading: loadingCategoryOverTime } =
+    useSpendingByCategoryOverTime(
+      startDate,
+      endDate,
+      granularity,
+      selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
+    );
   const { data: spendingTrends, isLoading: loadingTrends } =
     useSpendingTrends(startDate, endDate, granularity);
   const { data: budgetVsActual, isLoading: loadingBudget } =
@@ -104,6 +175,13 @@ export function ReportsPage() {
     useMonthlyComparison(months);
   const { data: topMerchants, isLoading: loadingMerchants } =
     useTopMerchants(startDate, endDate, 10);
+
+  function handlePresetChange(value: Preset) {
+    setPreset(value);
+    setGranularity(getDefaultGranularity(value));
+  }
+
+  const effectiveChartType = selectedCategoryIds.length > 0 ? "line" : chartType;
 
   return (
     <div className="space-y-6">
@@ -119,7 +197,7 @@ export function ReportsPage() {
           {PRESETS.map(({ label, value }) => (
             <button
               key={value}
-              onClick={() => setPreset(value)}
+              onClick={() => handlePresetChange(value)}
               className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                 preset === value
                   ? "bg-background shadow-sm"
@@ -169,36 +247,143 @@ export function ReportsPage() {
       </div>
 
       {activeTab === "spending" && (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Spending by Category</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingCategory ? (
+                  <LoadingSpinner />
+                ) : (
+                  <SpendingPieChart
+                    data={spendingByCategory ?? []}
+                    onCategoryClick={setDrillDownCategory}
+                    highlightedCategory={highlightedCategory}
+                    onCategoryHover={setHighlightedCategory}
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Top Merchants</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingMerchants ? (
+                  <LoadingSpinner />
+                ) : (
+                  <TopMerchantsChart data={topMerchants ?? []} />
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Spending by Category</CardTitle>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <CardTitle className="text-base">
+                  Category Spending Over Time
+                </CardTitle>
+                <div className="flex gap-2">
+                  {selectedCategoryIds.length === 0 && (
+                    <div className="flex rounded-lg border bg-muted/30 p-1">
+                      {CHART_TYPES.map(({ label, value }) => (
+                        <button
+                          key={value}
+                          onClick={() => setChartType(value)}
+                          className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                            chartType === value
+                              ? "bg-background shadow-sm"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <GranularityToggle
+                    granularity={granularity}
+                    onChange={setGranularity}
+                  />
+                </div>
+              </div>
+
+              {selectedCategoryIds.length > 0 && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground">Comparing:</span>
+                  {selectedCategoryIds.map((id) => {
+                    const cat = spendingByCategory?.find(
+                      (c) => c.category_id === id,
+                    );
+                    return (
+                      <button
+                        key={id}
+                        onClick={() =>
+                          setSelectedCategoryIds((prev) =>
+                            prev.filter((cid) => cid !== id),
+                          )
+                        }
+                        className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors hover:bg-muted"
+                      >
+                        <span
+                          className="inline-block h-2 w-2 rounded-full"
+                          style={{ backgroundColor: cat?.category_color }}
+                        />
+                        {cat?.category_name ?? "Unknown"}
+                        <span className="text-muted-foreground">&times;</span>
+                      </button>
+                    );
+                  })}
+                  <button
+                    onClick={() => setSelectedCategoryIds([])}
+                    className="text-xs text-muted-foreground underline hover:text-foreground"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
-              {loadingCategory ? (
-                <div className="flex h-64 items-center justify-center">
-                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
-                </div>
+              {loadingCategoryOverTime ? (
+                <LoadingSpinner />
               ) : (
-                <SpendingPieChart data={spendingByCategory ?? []} />
+                <CategoryOverTimeChart
+                  data={categoryOverTime ?? []}
+                  granularity={granularity}
+                  chartType={effectiveChartType}
+                  highlightedCategory={highlightedCategory}
+                  onCategoryHover={setHighlightedCategory}
+                  onCategoryClick={(name) => {
+                    const cat = spendingByCategory?.find(
+                      (c) => c.category_name === name,
+                    );
+                    if (cat?.category_id) {
+                      setSelectedCategoryIds((prev) =>
+                        prev.includes(cat.category_id)
+                          ? prev.filter((id) => id !== cat.category_id)
+                          : prev.length < 8
+                            ? [...prev, cat.category_id]
+                            : prev,
+                      );
+                    }
+                  }}
+                />
               )}
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Top Merchants</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loadingMerchants ? (
-                <div className="flex h-64 items-center justify-center">
-                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
-                </div>
-              ) : (
-                <TopMerchantsChart data={topMerchants ?? []} />
-              )}
-            </CardContent>
-          </Card>
+          {drillDownCategory && (
+            <DrillDownCard
+              category={drillDownCategory}
+              startDate={startDate}
+              endDate={endDate}
+              onClose={() => setDrillDownCategory(null)}
+            />
+          )}
         </div>
       )}
 
@@ -209,9 +394,7 @@ export function ReportsPage() {
           </CardHeader>
           <CardContent>
             {loadingBudget ? (
-              <div className="flex h-64 items-center justify-center">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
-              </div>
+              <LoadingSpinner />
             ) : (
               <BudgetVsActualBar data={budgetVsActual ?? []} />
             )}
@@ -226,9 +409,7 @@ export function ReportsPage() {
           </CardHeader>
           <CardContent>
             {loadingMonthly ? (
-              <div className="flex h-64 items-center justify-center">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
-              </div>
+              <LoadingSpinner />
             ) : (
               <MonthlyComparisonChart data={monthlyComparison ?? []} />
             )}
@@ -241,34 +422,107 @@ export function ReportsPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Spending Trends</CardTitle>
-              <div className="flex rounded-lg border bg-muted/30 p-1">
-                {["daily", "weekly", "monthly"].map((g) => (
-                  <button
-                    key={g}
-                    onClick={() => setGranularity(g)}
-                    className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition-colors ${
-                      granularity === g
-                        ? "bg-background shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {g}
-                  </button>
-                ))}
-              </div>
+              <GranularityToggle
+                granularity={granularity}
+                onChange={setGranularity}
+              />
             </div>
           </CardHeader>
           <CardContent>
             {loadingTrends ? (
-              <div className="flex h-64 items-center justify-center">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
-              </div>
+              <LoadingSpinner />
             ) : (
-              <TrendLineChart data={spendingTrends ?? []} granularity={granularity} />
+              <TrendLineChart
+                data={spendingTrends ?? []}
+                granularity={granularity}
+              />
             )}
           </CardContent>
         </Card>
       )}
     </div>
+  );
+}
+
+function DrillDownCard({
+  category,
+  startDate,
+  endDate,
+  onClose,
+}: {
+  category: SpendingByCategory;
+  startDate: string;
+  endDate: string;
+  onClose: () => void;
+}) {
+  const [granularity, setGranularity] = useState("weekly");
+  const { data, isLoading } = useSpendingByCategoryOverTime(
+    startDate,
+    endDate,
+    granularity,
+    category.category_id ? [category.category_id] : undefined,
+  );
+
+  return (
+    <Card className="border-2" style={{ borderColor: category.category_color }}>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span
+              className="inline-block h-3 w-3 rounded-full"
+              style={{ backgroundColor: category.category_color }}
+            />
+            <CardTitle className="text-base">
+              {category.category_name} — Spending Over Time
+            </CardTitle>
+          </div>
+          <div className="flex items-center gap-2">
+            <GranularityToggle
+              granularity={granularity}
+              onChange={setGranularity}
+            />
+            <button
+              onClick={onClose}
+              className="rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+        <div className="flex gap-6 text-sm text-muted-foreground">
+          <span>
+            Total:{" "}
+            <span className="font-medium text-foreground">
+              ${category.total_amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+            </span>
+          </span>
+          <span>
+            Transactions:{" "}
+            <span className="font-medium text-foreground">
+              {category.transaction_count}
+            </span>
+          </span>
+          <span>
+            Share:{" "}
+            <span className="font-medium text-foreground">
+              {category.percentage.toFixed(1)}%
+            </span>
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex h-64 items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
+          </div>
+        ) : (
+          <CategoryOverTimeChart
+            data={data ?? []}
+            granularity={granularity}
+            chartType="line"
+          />
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -52,6 +52,19 @@ class TopMerchant(BaseModel):
     transaction_count: int
 
 
+class CategoryPeriodAmount(BaseModel):
+    category_id: uuid.UUID | None
+    category_name: str
+    category_color: str
+    amount: float
+
+
+class SpendingByCategoryOverTime(BaseModel):
+    period: str
+    categories: list[CategoryPeriodAmount]
+    total: float
+
+
 class ReportDateRange(BaseModel):
     start_date: date
     end_date: date

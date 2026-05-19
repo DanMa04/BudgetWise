@@ -66,7 +66,7 @@ export function TopMerchantsChart({ data }: TopMerchantsChartProps) {
             tick={{ fontSize: 12 }}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="total_amount" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+          <Bar dataKey="total_amount" fill="#8b5cf6" radius={[0, 4, 4, 0]} isAnimationActive={true} animationDuration={600} animationEasing="ease-in-out" />
         </BarChart>
       </ResponsiveContainer>
     </div>

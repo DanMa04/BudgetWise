@@ -82,6 +82,9 @@ export function TrendLineChart({ data, granularity }: TrendLineChartProps) {
             strokeWidth={2}
             dot={{ r: 3 }}
             activeDot={{ r: 5 }}
+            isAnimationActive={true}
+            animationDuration={600}
+            animationEasing="ease-in-out"
           />
         </LineChart>
       </ResponsiveContainer>

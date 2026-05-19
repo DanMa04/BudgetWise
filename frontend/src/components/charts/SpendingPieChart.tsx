@@ -10,6 +10,9 @@ import type { SpendingByCategory } from "@/types/models";
 
 interface SpendingPieChartProps {
   data: SpendingByCategory[];
+  onCategoryClick?: (category: SpendingByCategory) => void;
+  highlightedCategory?: string | null;
+  onCategoryHover?: (name: string | null) => void;
 }
 
 function CustomTooltip({
@@ -34,7 +37,12 @@ function CustomTooltip({
   );
 }
 
-export function SpendingPieChart({ data }: SpendingPieChartProps) {
+export function SpendingPieChart({
+  data,
+  onCategoryClick,
+  highlightedCategory,
+  onCategoryHover,
+}: SpendingPieChartProps) {
   if (data.length === 0) {
     return (
       <div className="flex h-64 items-center justify-center text-muted-foreground">
@@ -58,9 +66,30 @@ export function SpendingPieChart({ data }: SpendingPieChartProps) {
             dataKey="total_amount"
             nameKey="category_name"
             paddingAngle={2}
+            isAnimationActive={true}
+            animationDuration={600}
+            animationEasing="ease-in-out"
+            onMouseLeave={() => onCategoryHover?.(null)}
           >
             {data.map((entry, index) => (
-              <Cell key={entry.category_id ?? `uncategorized-${index}`} fill={entry.category_color} />
+              <Cell
+                key={entry.category_id ?? `uncategorized-${index}`}
+                fill={entry.category_color}
+                fillOpacity={
+                  highlightedCategory && highlightedCategory !== entry.category_name
+                    ? 0.25
+                    : 1
+                }
+                stroke={
+                  highlightedCategory === entry.category_name
+                    ? entry.category_color
+                    : "transparent"
+                }
+                strokeWidth={highlightedCategory === entry.category_name ? 3 : 0}
+                style={{ cursor: onCategoryClick ? "pointer" : "default" }}
+                onClick={() => onCategoryClick?.(entry)}
+                onMouseEnter={() => onCategoryHover?.(entry.category_name)}
+              />
             ))}
           </Pie>
           <Tooltip content={<CustomTooltip />} />

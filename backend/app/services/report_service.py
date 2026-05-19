@@ -9,9 +9,11 @@ from app.models.category import Category
 from app.models.transaction import Transaction
 from app.schemas.report import (
     BudgetVsActual,
+    CategoryPeriodAmount,
     IncomeVsExpense,
     MonthlyComparison,
     SpendingByCategory,
+    SpendingByCategoryOverTime,
     SpendingTrend,
     TopMerchant,
 )
@@ -122,6 +124,78 @@ async def get_spending_trends(
             transaction_count=data["transaction_count"],
         )
         for period, data in sorted(grouped.items())
+    ]
+
+
+async def get_spending_by_category_over_time(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    start_date: date,
+    end_date: date,
+    granularity: str = "monthly",
+    category_ids: list[uuid.UUID] | None = None,
+) -> list[SpendingByCategoryOverTime]:
+    query = (
+        select(
+            Transaction.date,
+            Transaction.amount,
+            Category.id.label("cat_id"),
+            Category.name.label("cat_name"),
+            func.coalesce(Category.color, "").label("cat_color"),
+        )
+        .outerjoin(Category, Transaction.category_id == Category.id)
+        .where(
+            Transaction.user_id == user_id,
+            Transaction.date >= start_date,
+            Transaction.date <= end_date,
+            Transaction.amount < 0,
+            case(
+                (Category.id.is_(None), True),
+                else_=Category.is_income.is_(False),
+            ),
+        )
+        .order_by(Transaction.date)
+    )
+
+    if category_ids:
+        query = query.where(Transaction.category_id.in_(category_ids))
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    grouped: dict[str, dict[str | None, dict]] = {}
+    for row in rows:
+        period = _period_key(row.date, granularity)
+        if period not in grouped:
+            grouped[period] = {}
+
+        cat_key = str(row.cat_id) if row.cat_id else None
+        if cat_key not in grouped[period]:
+            grouped[period][cat_key] = {
+                "category_id": row.cat_id,
+                "category_name": row.cat_name or "Uncategorized",
+                "category_color": row.cat_color or "#9ca3af",
+                "amount": 0.0,
+            }
+        grouped[period][cat_key]["amount"] += abs(float(row.amount))
+
+    return [
+        SpendingByCategoryOverTime(
+            period=period,
+            categories=[
+                CategoryPeriodAmount(
+                    category_id=cat["category_id"],
+                    category_name=cat["category_name"],
+                    category_color=cat["category_color"],
+                    amount=round(cat["amount"], 2),
+                )
+                for cat in sorted(
+                    cats.values(), key=lambda c: c["amount"], reverse=True
+                )
+            ],
+            total=round(sum(c["amount"] for c in cats.values()), 2),
+        )
+        for period, cats in sorted(grouped.items())
     ]
 
 

@@ -1,6 +1,7 @@
 import { apiFetch } from "@/api/client";
 import type {
   SpendingByCategory,
+  SpendingByCategoryOverTime,
   SpendingTrend,
   BudgetVsActual,
   MonthlyComparison,
@@ -16,6 +17,28 @@ export async function fetchSpendingByCategory(
   const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
   return apiFetch<SpendingByCategory[]>(
     `/api/v1/reports/spending-by-category?${params}`,
+    {},
+    token
+  );
+}
+
+export async function fetchSpendingByCategoryOverTime(
+  token: string,
+  startDate: string,
+  endDate: string,
+  granularity: string,
+  categoryIds?: string[],
+): Promise<SpendingByCategoryOverTime[]> {
+  const params = new URLSearchParams({
+    start_date: startDate,
+    end_date: endDate,
+    granularity,
+  });
+  if (categoryIds?.length) {
+    params.set("category_ids", categoryIds.join(","));
+  }
+  return apiFetch<SpendingByCategoryOverTime[]>(
+    `/api/v1/reports/spending-by-category-over-time?${params}`,
     {},
     token
   );

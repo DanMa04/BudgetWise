@@ -212,6 +212,19 @@ export interface SpendingTrend {
   transaction_count: number;
 }
 
+export interface CategoryPeriodAmount {
+  category_id: string | null;
+  category_name: string;
+  category_color: string;
+  amount: number;
+}
+
+export interface SpendingByCategoryOverTime {
+  period: string;
+  categories: CategoryPeriodAmount[];
+  total: number;
+}
+
 export interface BudgetVsActual {
   budget_id: string;
   category_name: string;

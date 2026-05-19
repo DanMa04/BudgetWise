@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Query
@@ -11,6 +12,7 @@ from app.schemas.report import (
     IncomeVsExpense,
     MonthlyComparison,
     SpendingByCategory,
+    SpendingByCategoryOverTime,
     SpendingTrend,
     TopMerchant,
 )
@@ -19,6 +21,7 @@ from app.services.report_service import (
     get_income_vs_expense,
     get_monthly_comparison,
     get_spending_by_category,
+    get_spending_by_category_over_time,
     get_spending_trends,
     get_top_merchants,
 )
@@ -45,6 +48,27 @@ async def spending_by_category(
 ):
     start, end = _default_date_range(start_date, end_date)
     return await get_spending_by_category(db, current_user.id, start, end)
+
+
+@router.get(
+    "/spending-by-category-over-time",
+    response_model=list[SpendingByCategoryOverTime],
+)
+async def spending_by_category_over_time(
+    start_date: date | None = Query(None),
+    end_date: date | None = Query(None),
+    granularity: str = Query("monthly"),
+    category_ids: str | None = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    start, end = _default_date_range(start_date, end_date)
+    parsed_ids = None
+    if category_ids:
+        parsed_ids = [uuid.UUID(cid.strip()) for cid in category_ids.split(",")]
+    return await get_spending_by_category_over_time(
+        db, current_user.id, start, end, granularity, parsed_ids
+    )
 
 
 @router.get("/spending-trends", response_model=list[SpendingTrend])
