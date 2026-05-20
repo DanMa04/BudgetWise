@@ -28,4 +28,11 @@ class Category(Base):
     )
 
     user: Mapped["User | None"] = relationship(back_populates="categories")  # noqa: F821
-    parent: Mapped["Category | None"] = relationship(remote_side="Category.id")
+    parent: Mapped["Category | None"] = relationship(
+        remote_side="Category.id",
+        back_populates="children",
+    )
+    children: Mapped[list["Category"]] = relationship(
+        back_populates="parent",
+        foreign_keys="Category.parent_id",
+    )

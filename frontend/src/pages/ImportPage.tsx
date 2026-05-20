@@ -14,6 +14,7 @@ import {
   useConfirmImport,
   useDeleteImport,
 } from "@/hooks/useImport";
+import { MergeSuggestionsBanner } from "@/components/categories/MergeSuggestionsBanner";
 import { cn } from "@/lib/utils";
 import type {
   AutoDetectResponse,
@@ -278,6 +279,8 @@ export function ImportPage() {
             </CardContent>
           </Card>
         )}
+
+        {currentStep === 4 && <MergeSuggestionsBanner />}
       </div>
 
       {/* Import History (always visible) */}

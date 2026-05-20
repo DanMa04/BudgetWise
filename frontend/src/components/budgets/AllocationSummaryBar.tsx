@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { AllocationItem } from "./useAllocationState";
 
 interface AllocationSummaryBarProps {
@@ -5,21 +6,57 @@ interface AllocationSummaryBarProps {
   income: number;
 }
 
+interface Segment {
+  id: string;
+  name: string;
+  color: string;
+  percent: number;
+  type: string;
+}
+
 export function AllocationSummaryBar({
   items,
   income,
 }: AllocationSummaryBarProps) {
-  if (income <= 0) return null;
+  const segments = useMemo(() => {
+    if (income <= 0) return [];
 
-  const segments = items
-    .filter((it) => it.amount > 0)
-    .map((it) => ({
-      id: it.id,
-      name: it.name,
-      color: it.color || (it.type === "goal" ? "#8b5cf6" : "#6b7280"),
-      percent: (it.amount / income) * 100,
-      type: it.type,
-    }));
+    const parentIds = new Set(
+      items.filter((it) => it.parentId).map((it) => it.parentId!)
+    );
+
+    const grouped = new Map<string, Segment>();
+
+    for (const it of items) {
+      if (it.amount <= 0) continue;
+
+      if (parentIds.has(it.id)) continue;
+
+      const groupKey = it.parentId ?? it.id;
+      const existing = grouped.get(groupKey);
+
+      if (existing) {
+        existing.percent += (it.amount / income) * 100;
+      } else {
+        const parent = it.parentId
+          ? items.find((p) => p.id === it.parentId)
+          : null;
+        grouped.set(groupKey, {
+          id: groupKey,
+          name: parent?.name ?? it.name,
+          color: parent?.color ?? it.color ?? (it.type === "goal" ? "#8b5cf6" : "#6b7280"),
+          percent: (it.amount / income) * 100,
+          type: it.type,
+        });
+      }
+    }
+
+    return Array.from(grouped.values()).sort(
+      (a, b) => b.percent - a.percent
+    );
+  }, [items, income]);
+
+  if (income <= 0) return null;
 
   const allocatedPercent = segments.reduce((sum, s) => sum + s.percent, 0);
   const unallocatedPercent = Math.max(0, 100 - allocatedPercent);

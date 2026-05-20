@@ -100,6 +100,34 @@ export interface Category {
   created_at: string;
 }
 
+export interface CategoryWithSpend extends Category {
+  total_spend: number;
+  transaction_count: number;
+}
+
+export interface MergeSuggestion {
+  source: Category;
+  target: Category;
+  similarity_score: number;
+}
+
+export interface MergeCategoryRequest {
+  source_id: string;
+  target_id: string;
+}
+
+export interface MergeCategoryResponse {
+  target_id: string;
+  transactions_moved: number;
+  rules_moved: number;
+  budgets_merged: number;
+}
+
+export interface SubordinateCategoryRequest {
+  source_id: string;
+  parent_id: string;
+}
+
 export interface TransactionFilters {
   page?: number;
   per_page?: number;
@@ -135,6 +163,7 @@ export interface CreateBudgetData {
 
 export interface CategoryAllocation {
   category_id: string;
+  parent_id: string | null;
   category_name: string;
   category_color: string | null;
   category_icon: string | null;
@@ -252,6 +281,8 @@ export interface ColumnMappingRequest {
 
 export interface SpendingByCategory {
   category_id: string;
+  parent_category_id: string | null;
+  parent_category_name: string | null;
   category_name: string;
   category_color: string;
   category_icon: string;
@@ -268,6 +299,7 @@ export interface SpendingTrend {
 
 export interface CategoryPeriodAmount {
   category_id: string | null;
+  parent_category_id: string | null;
   category_name: string;
   category_color: string;
   amount: number;
@@ -281,6 +313,9 @@ export interface SpendingByCategoryOverTime {
 
 export interface BudgetVsActual {
   budget_id: string;
+  category_id: string | null;
+  parent_category_id: string | null;
+  parent_category_name: string | null;
   category_name: string;
   category_color: string;
   budgeted_amount: number;

@@ -3,6 +3,7 @@ import {
   BarChart3,
   CreditCard,
   FileUp,
+  FolderTree,
   Home,
   Landmark,
   Settings,
@@ -19,6 +20,7 @@ const navItems = [
   { to: "/accounts", icon: Landmark, label: "Accounts" },
   { to: "/import", icon: FileUp, label: "Import" },
   { to: "/reports", icon: BarChart3, label: "Reports" },
+  { to: "/categories", icon: FolderTree, label: "Categories" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 

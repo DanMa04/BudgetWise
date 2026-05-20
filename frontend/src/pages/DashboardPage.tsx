@@ -18,6 +18,7 @@ import {
   useTopMerchants,
 } from "@/hooks/useReports";
 import { formatCurrency } from "@/lib/formatters";
+import { groupSpendingByParent } from "@/lib/categoryGrouping";
 import { AlertBanner } from "@/components/notifications/AlertBanner";
 
 function getDateRange() {
@@ -195,7 +196,7 @@ export function DashboardPage() {
             <CardTitle className="text-base">Spending by Category</CardTitle>
           </CardHeader>
           <CardContent>
-            <SpendingPieChart data={spendingByCategory ?? []} />
+            <SpendingPieChart data={groupSpendingByParent(spendingByCategory ?? [])} />
           </CardContent>
         </Card>
 

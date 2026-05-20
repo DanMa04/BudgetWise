@@ -65,6 +65,7 @@ export function useCreateGoal() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["goals"] });
       queryClient.invalidateQueries({ queryKey: ["goal-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["allocation-data"] });
     },
   });
 }
@@ -88,6 +89,7 @@ export function useUpdateGoal() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["goals"] });
       queryClient.invalidateQueries({ queryKey: ["goal-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["allocation-data"] });
     },
   });
 }
@@ -105,6 +107,7 @@ export function useDeleteGoal() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["goals"] });
       queryClient.invalidateQueries({ queryKey: ["goal-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["allocation-data"] });
     },
   });
 }

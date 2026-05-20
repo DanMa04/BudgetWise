@@ -1,6 +1,25 @@
 import { useReducer, useCallback } from "react";
 import type { AllocationData } from "@/types/models";
 
+const FIXED_EXPENSE_NAMES = new Set([
+  "housing",
+  "mortgage & rent",
+  "car payment",
+  "insurance",
+  "utilities",
+  "bills & utilities",
+  "internet",
+  "subscriptions",
+  "credit card payment",
+  "taxes",
+  "federal tax",
+  "state tax",
+]);
+
+function isFixedExpense(name: string): boolean {
+  return FIXED_EXPENSE_NAMES.has(name.toLowerCase());
+}
+
 export interface AllocationItem {
   id: string;
   type: "category" | "goal";
@@ -11,6 +30,7 @@ export interface AllocationItem {
   isLocked: boolean;
   averageSpend?: number;
   budgetId?: string;
+  parentId?: string | null;
   targetAmount?: number;
   currentAmount?: number;
   monthlyRate?: number;
@@ -137,33 +157,43 @@ function reducer(state: AllocationState, action: Action): AllocationState {
       const { data } = action;
       const income =
         data.monthly_income_override ?? data.suggested_monthly_income;
-      const items: AllocationItem[] = [
-        ...data.categories.map((cat) => ({
-          id: cat.category_id,
-          type: "category" as const,
-          name: cat.category_name,
-          color: cat.category_color,
-          icon: cat.category_icon,
-          amount: cat.current_budget_amount ?? 0,
-          isLocked: cat.is_locked,
-          averageSpend: cat.average_monthly_spend,
-          budgetId: cat.budget_id ?? undefined,
-        })),
-        ...data.goals.map((goal) => ({
-          id: goal.goal_id,
-          type: "goal" as const,
-          name: goal.name,
-          color: goal.color,
-          icon: null,
-          amount: goal.planned_monthly_contribution ?? 0,
-          isLocked: goal.planned_monthly_contribution != null,
-          targetAmount: goal.target_amount,
-          currentAmount: goal.current_amount,
-          monthlyRate: goal.monthly_rate,
-          targetDate: goal.target_date,
-        })),
-      ];
-      return { income, items };
+
+      const categoryItems: AllocationItem[] = data.categories
+        .map((cat) => {
+          const amount = cat.current_budget_amount ?? cat.average_monthly_spend;
+          const fixed = isFixedExpense(cat.category_name);
+          return {
+            id: cat.category_id,
+            type: "category" as const,
+            name: cat.category_name,
+            color: cat.category_color,
+            icon: cat.category_icon,
+            amount,
+            isLocked: cat.is_locked || (fixed && amount > 0),
+            averageSpend: cat.average_monthly_spend,
+            budgetId: cat.budget_id ?? undefined,
+            parentId: cat.parent_id,
+          };
+        })
+        .sort((a, b) => b.amount - a.amount);
+
+      const goalItems: AllocationItem[] = data.goals.map((goal) => ({
+        id: goal.goal_id,
+        type: "goal" as const,
+        name: goal.name,
+        color: goal.color,
+        icon: null,
+        amount: goal.planned_monthly_contribution ?? 0,
+        isLocked: goal.planned_monthly_contribution != null,
+        targetAmount: goal.target_amount,
+        currentAmount: goal.current_amount,
+        monthlyRate: goal.monthly_rate,
+        targetDate: goal.target_date,
+      }));
+
+      const allItems = [...categoryItems, ...goalItems];
+      const balanced = redistributeOnIncomeChange(allItems, income);
+      return { income, items: balanced };
     }
 
     case "SET_INCOME": {

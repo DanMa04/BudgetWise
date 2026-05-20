@@ -249,6 +249,7 @@ async def get_allocation_data(
         category_allocations.append(
             CategoryAllocation(
                 category_id=cat.id,
+                parent_id=cat.parent_id,
                 category_name=cat.name,
                 category_color=cat.color,
                 category_icon=cat.icon,

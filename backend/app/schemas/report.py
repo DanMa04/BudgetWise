@@ -8,6 +8,8 @@ from pydantic import BaseModel
 
 class SpendingByCategory(BaseModel):
     category_id: uuid.UUID | None
+    parent_category_id: uuid.UUID | None = None
+    parent_category_name: str | None = None
     category_name: str
     category_color: str
     category_icon: str
@@ -24,6 +26,9 @@ class SpendingTrend(BaseModel):
 
 class BudgetVsActual(BaseModel):
     budget_id: uuid.UUID
+    category_id: uuid.UUID | None = None
+    parent_category_id: uuid.UUID | None = None
+    parent_category_name: str | None = None
     category_name: str
     category_color: str
     budgeted_amount: float
@@ -54,6 +59,7 @@ class TopMerchant(BaseModel):
 
 class CategoryPeriodAmount(BaseModel):
     category_id: uuid.UUID | None
+    parent_category_id: uuid.UUID | None = None
     category_name: str
     category_color: str
     amount: float

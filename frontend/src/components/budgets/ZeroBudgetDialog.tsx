@@ -43,11 +43,14 @@ export function ZeroBudgetDialog({ open, onClose }: ZeroBudgetDialogProps) {
   }, [data, open, init]);
 
   function handleSave() {
+    const parentIds = new Set(
+      items.filter((it) => it.parentId).map((it) => it.parentId!)
+    );
     const payload: BulkBudgetSave = {
       monthly_income: income,
       period_type: "monthly",
       allocations: items
-        .filter((it) => it.type === "category")
+        .filter((it) => it.type === "category" && !parentIds.has(it.id))
         .map((it) => ({
           category_id: it.id,
           amount: it.amount,
@@ -67,7 +70,7 @@ export function ZeroBudgetDialog({ open, onClose }: ZeroBudgetDialogProps) {
     <Dialog open={open}>
       <DialogContent
         onClose={onClose}
-        className="max-h-[90vh] max-w-4xl overflow-y-auto"
+        className="max-h-[90vh] max-w-5xl overflow-y-auto"
       >
         <DialogHeader>
           <DialogTitle>Zero-Based Budget</DialogTitle>

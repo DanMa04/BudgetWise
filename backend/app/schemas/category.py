@@ -35,3 +35,31 @@ class CategoryUpdate(BaseModel):
     color: str | None = None
     is_income: bool | None = None
     sort_order: int | None = None
+
+
+class MergeCategoryRequest(BaseModel):
+    source_id: uuid.UUID
+    target_id: uuid.UUID
+
+
+class MergeCategoryResponse(BaseModel):
+    target_id: uuid.UUID
+    transactions_moved: int
+    rules_moved: int
+    budgets_merged: int
+
+
+class MergeSuggestion(BaseModel):
+    source: CategoryRead
+    target: CategoryRead
+    similarity_score: float
+
+
+class CategoryWithSpend(CategoryRead):
+    total_spend: float
+    transaction_count: int
+
+
+class SubordinateCategoryRequest(BaseModel):
+    source_id: uuid.UUID
+    parent_id: uuid.UUID

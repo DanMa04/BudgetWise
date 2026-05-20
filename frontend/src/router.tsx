@@ -28,6 +28,11 @@ const GoalsPage = lazy(() =>
 const NotFoundPage = lazy(() =>
   import("@/pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage })),
 );
+const CategoriesPage = lazy(() =>
+  import("@/pages/CategoriesPage").then((m) => ({
+    default: m.CategoriesPage,
+  })),
+);
 const SettingsPage = lazy(() =>
   import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })),
 );
@@ -43,6 +48,7 @@ export const router = createBrowserRouter([
       { path: "accounts", element: <AccountsPage /> },
       { path: "import", element: <ImportPage /> },
       { path: "reports", element: <ReportsPage /> },
+      { path: "categories", element: <CategoriesPage /> },
       { path: "settings", element: <SettingsPage /> },
       { path: "*", element: <NotFoundPage /> },
     ],

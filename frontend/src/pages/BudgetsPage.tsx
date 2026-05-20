@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BudgetOverview } from "@/components/budgets/BudgetOverview";
@@ -22,8 +22,17 @@ export function BudgetsPage() {
           </p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="h-4 w-4" />
-          Add Budget
+          {budgets.length > 0 ? (
+            <>
+              <Pencil className="h-4 w-4" />
+              Edit Budget
+            </>
+          ) : (
+            <>
+              <Plus className="h-4 w-4" />
+              Add Budget
+            </>
+          )}
         </Button>
       </div>
 

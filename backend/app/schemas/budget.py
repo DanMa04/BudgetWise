@@ -59,6 +59,7 @@ class BudgetSummary(BaseModel):
 
 class CategoryAllocation(BaseModel):
     category_id: uuid.UUID
+    parent_id: uuid.UUID | None = None
     category_name: str
     category_color: str | None
     category_icon: str | None

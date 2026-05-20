@@ -14,6 +14,10 @@ import {
   useMonthlyComparison,
   useTopMerchants,
 } from "@/hooks/useReports";
+import {
+  groupSpendingByParent,
+  groupBudgetVsActualByParent,
+} from "@/lib/categoryGrouping";
 import type { SpendingByCategory } from "@/types/models";
 
 type Preset = "7d" | "30d" | "90d" | "6m" | "1y" | "custom";
@@ -176,6 +180,15 @@ export function ReportsPage() {
   const { data: topMerchants, isLoading: loadingMerchants } =
     useTopMerchants(startDate, endDate, 10);
 
+  const groupedSpending = useMemo(
+    () => groupSpendingByParent(spendingByCategory ?? []),
+    [spendingByCategory]
+  );
+  const groupedBudget = useMemo(
+    () => groupBudgetVsActualByParent(budgetVsActual ?? []),
+    [budgetVsActual]
+  );
+
   function handlePresetChange(value: Preset) {
     setPreset(value);
     setGranularity(getDefaultGranularity(value));
@@ -258,8 +271,17 @@ export function ReportsPage() {
                   <LoadingSpinner />
                 ) : (
                   <SpendingPieChart
-                    data={spendingByCategory ?? []}
-                    onCategoryClick={setDrillDownCategory}
+                    data={groupedSpending}
+                    onCategoryClick={(cat) => {
+                      const children = (spendingByCategory ?? []).filter(
+                        (c) => c.parent_category_id === cat.category_id
+                      );
+                      if (children.length > 0) {
+                        setDrillDownCategory(cat);
+                      } else {
+                        setDrillDownCategory(cat);
+                      }
+                    }}
                     highlightedCategory={highlightedCategory}
                     onCategoryHover={setHighlightedCategory}
                   />
@@ -379,6 +401,7 @@ export function ReportsPage() {
           {drillDownCategory && (
             <DrillDownCard
               category={drillDownCategory}
+              allCategories={spendingByCategory ?? []}
               startDate={startDate}
               endDate={endDate}
               onClose={() => setDrillDownCategory(null)}
@@ -396,7 +419,7 @@ export function ReportsPage() {
             {loadingBudget ? (
               <LoadingSpinner />
             ) : (
-              <BudgetVsActualBar data={budgetVsActual ?? []} />
+              <BudgetVsActualBar data={groupedBudget} />
             )}
           </CardContent>
         </Card>
@@ -446,21 +469,35 @@ export function ReportsPage() {
 
 function DrillDownCard({
   category,
+  allCategories,
   startDate,
   endDate,
   onClose,
 }: {
   category: SpendingByCategory;
+  allCategories: SpendingByCategory[];
   startDate: string;
   endDate: string;
   onClose: () => void;
 }) {
   const [granularity, setGranularity] = useState("weekly");
+
+  const childIds = useMemo(() => {
+    const children = allCategories.filter(
+      (c) => c.parent_category_id === category.category_id
+    );
+    return children.length > 0
+      ? children.map((c) => c.category_id)
+      : category.category_id
+        ? [category.category_id]
+        : undefined;
+  }, [allCategories, category.category_id]);
+
   const { data, isLoading } = useSpendingByCategoryOverTime(
     startDate,
     endDate,
     granularity,
-    category.category_id ? [category.category_id] : undefined,
+    childIds,
   );
 
   return (

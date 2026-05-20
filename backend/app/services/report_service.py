@@ -25,16 +25,23 @@ async def get_spending_by_category(
     start_date: date,
     end_date: date,
 ) -> list[SpendingByCategory]:
+    from sqlalchemy.orm import aliased
+
+    ParentCategory = aliased(Category)
+
     query = (
         select(
             Category.id,
             Category.name,
             func.coalesce(Category.color, "").label("color"),
             func.coalesce(Category.icon, "").label("icon"),
+            Category.parent_id,
+            ParentCategory.name.label("parent_name"),
             func.sum(func.abs(Transaction.amount)).label("total_amount"),
             func.count(Transaction.id).label("transaction_count"),
         )
         .outerjoin(Category, Transaction.category_id == Category.id)
+        .outerjoin(ParentCategory, Category.parent_id == ParentCategory.id)
         .where(
             Transaction.user_id == user_id,
             Transaction.date >= start_date,
@@ -45,7 +52,10 @@ async def get_spending_by_category(
                 else_=Category.is_income.is_(False),
             ),
         )
-        .group_by(Category.id, Category.name, Category.color, Category.icon)
+        .group_by(
+            Category.id, Category.name, Category.color, Category.icon,
+            Category.parent_id, ParentCategory.name,
+        )
         .order_by(func.sum(func.abs(Transaction.amount)).desc())
     )
 
@@ -60,6 +70,8 @@ async def get_spending_by_category(
     return [
         SpendingByCategory(
             category_id=row.id,
+            parent_category_id=row.parent_id,
+            parent_category_name=row.parent_name,
             category_name=row.name or "Uncategorized",
             category_color=row.color or "#9ca3af",
             category_icon=row.icon or "",
@@ -142,6 +154,7 @@ async def get_spending_by_category_over_time(
             Category.id.label("cat_id"),
             Category.name.label("cat_name"),
             func.coalesce(Category.color, "").label("cat_color"),
+            Category.parent_id.label("cat_parent_id"),
         )
         .outerjoin(Category, Transaction.category_id == Category.id)
         .where(
@@ -173,6 +186,7 @@ async def get_spending_by_category_over_time(
         if cat_key not in grouped[period]:
             grouped[period][cat_key] = {
                 "category_id": row.cat_id,
+                "parent_category_id": row.cat_parent_id,
                 "category_name": row.cat_name or "Uncategorized",
                 "category_color": row.cat_color or "#9ca3af",
                 "amount": 0.0,
@@ -185,6 +199,7 @@ async def get_spending_by_category_over_time(
             categories=[
                 CategoryPeriodAmount(
                     category_id=cat["category_id"],
+                    parent_category_id=cat["parent_category_id"],
                     category_name=cat["category_name"],
                     category_color=cat["category_color"],
                     amount=round(cat["amount"], 2),
@@ -230,15 +245,27 @@ async def get_budget_vs_actual(
         percentage_used = round(actual / budgeted * 100, 2) if budgeted > 0 else 0
 
         cat_result = await db.execute(
-            select(Category.name, Category.color).where(Category.id == budget.category_id)
+            select(
+                Category.id, Category.name, Category.color, Category.parent_id,
+            ).where(Category.id == budget.category_id)
         )
         cat_row = cat_result.one_or_none()
         cat_name = cat_row.name if cat_row else "Unknown"
         cat_color = (cat_row.color or "") if cat_row else ""
 
+        parent_name = None
+        if cat_row and cat_row.parent_id:
+            parent_result = await db.execute(
+                select(Category.name).where(Category.id == cat_row.parent_id)
+            )
+            parent_name = parent_result.scalar_one_or_none()
+
         results.append(
             BudgetVsActual(
                 budget_id=budget.id,
+                category_id=cat_row.id if cat_row else None,
+                parent_category_id=cat_row.parent_id if cat_row else None,
+                parent_category_name=parent_name,
                 category_name=cat_name,
                 category_color=cat_color,
                 budgeted_amount=budgeted,
