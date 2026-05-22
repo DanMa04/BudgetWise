@@ -3,6 +3,7 @@ import { ArrowRight, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MergeConfirmDialog } from "./MergeConfirmDialog";
 import { useMergeSuggestions } from "@/hooks/useCategories";
+import { useDismissedSet } from "@/hooks/useDismissedSet";
 import type { Category, CategoryWithSpend } from "@/types/models";
 
 function toCardData(cat: Category): CategoryWithSpend {
@@ -17,7 +18,7 @@ export function MergeSuggestionsBanner({
   categories,
 }: MergeSuggestionsBannerProps) {
   const { data: suggestions = [] } = useMergeSuggestions();
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const { dismissed, dismiss } = useDismissedSet("budgetwise:dismissed-merge-suggestions");
   const [mergeSource, setMergeSource] = useState<CategoryWithSpend | null>(
     null
   );
@@ -42,11 +43,7 @@ export function MergeSuggestionsBanner({
 
   function closeMerge() {
     if (mergeSource && mergeTarget) {
-      setDismissed((prev) => {
-        const next = new Set(prev);
-        next.add(`${mergeSource.id}-${mergeTarget.id}`);
-        return next;
-      });
+      dismiss(`${mergeSource.id}-${mergeTarget.id}`);
     }
     setMergeSource(null);
     setMergeTarget(null);
@@ -109,13 +106,7 @@ export function MergeSuggestionsBanner({
                     size="sm"
                     variant="ghost"
                     className="h-7 w-7 p-0"
-                    onClick={() =>
-                      setDismissed((prev) => {
-                        const next = new Set(prev);
-                        next.add(key);
-                        return next;
-                      })
-                    }
+                    onClick={() => dismiss(key)}
                   >
                     <X className="h-3.5 w-3.5" />
                   </Button>

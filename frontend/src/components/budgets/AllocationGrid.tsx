@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { Lock, Unlock } from "lucide-react";
 import { CategorySliderRow } from "./CategorySliderRow";
-import { CategoryGroupHeader } from "./CategoryGroupHeader";
 import { GoalVerticalBar } from "./GoalVerticalBar";
+import { formatCurrency } from "@/lib/formatters";
 import type { AllocationItem } from "./useAllocationState";
 
 interface AllocationGridProps {
@@ -10,6 +11,9 @@ interface AllocationGridProps {
   onSliderChange: (id: string, amount: number) => void;
   onManualEntry: (id: string, amount: number) => void;
   onToggleLock: (id: string) => void;
+  onSetGroupAmounts: (
+    updates: Array<{ id: string; amount: number }>
+  ) => void;
 }
 
 interface CategoryGroup {
@@ -19,16 +23,376 @@ interface CategoryGroup {
   totalAvg: number;
 }
 
+interface DragState {
+  handleIndex: number;
+  startX: number;
+  adjustedId: string;
+  adjustedStart: number;
+  otherIds: string[];
+  otherStarts: number[];
+  otherTotal: number;
+  barWidth: number;
+  groupTotal: number;
+}
+
+function GroupAllocationBar({
+  group,
+  onSetGroupAmounts,
+  onManualEntry,
+  onToggleLock,
+}: {
+  group: CategoryGroup;
+  onSetGroupAmounts: (
+    updates: Array<{ id: string; amount: number }>
+  ) => void;
+  onManualEntry: (id: string, amount: number) => void;
+  onToggleLock: (id: string) => void;
+}) {
+  const barRef = useRef<HTMLDivElement>(null);
+  const setGroupRef = useRef(onSetGroupAmounts);
+  setGroupRef.current = onSetGroupAmounts;
+
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const [totalInput, setTotalInput] = useState(group.totalAmount.toFixed(0));
+
+  const children = group.children;
+  const total = group.totalAmount;
+  const isGroupLocked = group.parent.isLocked;
+
+  useEffect(() => {
+    setTotalInput(group.totalAmount.toFixed(0));
+  }, [group.totalAmount]);
+
+  const segments = children.map((child) => ({
+    item: child,
+    pct:
+      total > 0
+        ? (child.amount / total) * 100
+        : 100 / Math.max(children.length, 1),
+  }));
+
+  const cumPcts = useMemo(() => {
+    const result: number[] = [];
+    let cum = 0;
+    for (const seg of segments) {
+      cum += seg.pct;
+      result.push(cum);
+    }
+    return result;
+  }, [segments]);
+
+  const startDrag = useCallback(
+    (handleIndex: number, clientX: number) => {
+      if (total === 0) return;
+      const adjusted = children[handleIndex];
+      if (adjusted.isLocked) return;
+
+      const others = children.filter(
+        (c, j) => j !== handleIndex && !c.isLocked
+      );
+      if (others.length === 0) return;
+
+      setDrag({
+        handleIndex,
+        startX: clientX,
+        adjustedId: adjusted.id,
+        adjustedStart: adjusted.amount,
+        otherIds: others.map((c) => c.id),
+        otherStarts: others.map((c) => c.amount),
+        otherTotal: others.reduce((s, c) => s + c.amount, 0),
+        barWidth: barRef.current?.offsetWidth ?? 1,
+        groupTotal: total,
+      });
+    },
+    [children, total]
+  );
+
+  useEffect(() => {
+    if (!drag) return;
+
+    function onMove(clientX: number) {
+      const d = drag!;
+      const deltaX = clientX - d.startX;
+      const rawDelta = (deltaX / d.barWidth) * d.groupTotal;
+      const clamped = Math.round(
+        Math.max(-d.adjustedStart, Math.min(d.otherTotal, rawDelta))
+      );
+      const newAdjusted = d.adjustedStart + clamped;
+
+      const updates: Array<{ id: string; amount: number }> = [
+        { id: d.adjustedId, amount: newAdjusted },
+      ];
+
+      let remaining = -clamped;
+      for (let j = 0; j < d.otherIds.length; j++) {
+        if (j === d.otherIds.length - 1) {
+          updates.push({
+            id: d.otherIds[j],
+            amount: Math.max(0, d.otherStarts[j] + remaining),
+          });
+        } else {
+          const proportion =
+            d.otherTotal > 0
+              ? d.otherStarts[j] / d.otherTotal
+              : 1 / d.otherIds.length;
+          const change = Math.round(-clamped * proportion);
+          updates.push({
+            id: d.otherIds[j],
+            amount: Math.max(0, d.otherStarts[j] + change),
+          });
+          remaining -= change;
+        }
+      }
+
+      setGroupRef.current(updates);
+    }
+
+    const handleMouseMove = (e: MouseEvent) => onMove(e.clientX);
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 0) onMove(e.touches[0].clientX);
+    };
+    const handleEnd = () => setDrag(null);
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleEnd);
+    document.addEventListener("touchmove", handleTouchMove, { passive: true });
+    document.addEventListener("touchend", handleEnd);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleEnd);
+      document.removeEventListener("touchmove", handleTouchMove);
+      document.removeEventListener("touchend", handleEnd);
+    };
+  }, [drag]);
+
+  function handleTotalBlur() {
+    const parsed = parseFloat(totalInput);
+    if (isNaN(parsed) || parsed < 0) {
+      setTotalInput(total.toFixed(0));
+      return;
+    }
+    const newTotal = Math.round(parsed);
+    if (newTotal === total) return;
+
+    const unlocked = children.filter((c) => !c.isLocked);
+    const lockedSum = children
+      .filter((c) => c.isLocked)
+      .reduce((s, c) => s + c.amount, 0);
+    const unlockedPool = Math.max(0, newTotal - lockedSum);
+
+    if (unlocked.length === 0) {
+      setTotalInput(total.toFixed(0));
+      return;
+    }
+
+    const unlockedTotal = unlocked.reduce((s, c) => s + c.amount, 0);
+    const updates: Array<{ id: string; amount: number }> = [];
+    let remaining = unlockedPool;
+
+    for (let i = 0; i < unlocked.length; i++) {
+      if (i === unlocked.length - 1) {
+        updates.push({ id: unlocked[i].id, amount: Math.max(0, remaining) });
+      } else {
+        const proportion =
+          unlockedTotal > 0
+            ? unlocked[i].amount / unlockedTotal
+            : 1 / unlocked.length;
+        const amount = Math.round(unlockedPool * proportion);
+        updates.push({ id: unlocked[i].id, amount });
+        remaining -= amount;
+      }
+    }
+
+    onSetGroupAmounts(updates);
+  }
+
+  function handleTotalKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+  }
+
+  return (
+    <div className="space-y-1">
+      {/* Header: parent name + group lock + avg + editable total */}
+      <div className="flex items-center gap-2">
+        <div
+          className="h-2.5 w-2.5 shrink-0 rounded-full"
+          style={{ backgroundColor: group.parent.color || "#6b7280" }}
+        />
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+          {group.parent.name}
+        </span>
+        <span className="text-xs tabular-nums text-muted-foreground">
+          avg {formatCurrency(group.totalAvg)}
+        </span>
+        <div className="relative w-24 shrink-0">
+          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+            $
+          </span>
+          <input
+            type="number"
+            min={0}
+            value={totalInput}
+            onChange={(e) => setTotalInput(e.target.value)}
+            onBlur={handleTotalBlur}
+            onKeyDown={handleTotalKeyDown}
+            disabled={isGroupLocked}
+            className="h-8 w-full rounded-md border bg-background pl-5 pr-2 text-right text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => onToggleLock(group.parent.id)}
+          className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          title={isGroupLocked ? "Unlock group" : "Lock group"}
+        >
+          {isGroupLocked ? (
+            <Lock className="h-4 w-4" />
+          ) : (
+            <Unlock className="h-4 w-4" />
+          )}
+        </button>
+      </div>
+
+      {/* Proportional bar */}
+      <div
+        ref={barRef}
+        className="relative flex h-9 rounded-md border"
+        onMouseLeave={() => {
+          if (!drag) setHoveredIndex(null);
+        }}
+      >
+        {segments.map((seg, i) => {
+          const isHovered = hoveredIndex === i;
+          const isDimmed =
+            hoveredIndex !== null && hoveredIndex !== i && !drag;
+
+          return (
+            <div
+              key={seg.item.id}
+              className="relative h-full transition-all duration-100 first:rounded-l-md last:rounded-r-md"
+              style={{
+                width: `${seg.pct}%`,
+                minWidth: seg.item.amount > 0 ? 4 : 0,
+                backgroundColor: seg.item.color || "#6b7280",
+                opacity: isDimmed ? 0.35 : 1,
+                filter: isHovered ? "brightness(1.15)" : undefined,
+              }}
+              onMouseEnter={() => {
+                if (!drag) setHoveredIndex(i);
+              }}
+            >
+              {/* Locked overlay pattern */}
+              {seg.item.isLocked && (
+                <div
+                  className="absolute inset-0 first:rounded-l-md last:rounded-r-md"
+                  style={{
+                    backgroundImage:
+                      "repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.1) 3px, rgba(255,255,255,0.1) 6px)",
+                  }}
+                />
+              )}
+
+              {/* Inline label when segment is wide enough */}
+              {seg.pct > 18 && (
+                <div className="absolute inset-0 flex items-center justify-center overflow-hidden px-1">
+                  <span className="truncate text-[11px] font-medium text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
+                    {seg.item.name}
+                  </span>
+                </div>
+              )}
+
+              {/* Hover tooltip */}
+              {isHovered && !drag && (
+                <div className="pointer-events-none absolute -top-9 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded border bg-popover px-2 py-1 text-xs font-medium shadow-md">
+                  {seg.item.name}: {formatCurrency(seg.item.amount)}
+                  {seg.item.isLocked ? " 🔒" : ""}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Drag handles between segments */}
+        {segments.length > 1 &&
+          segments.slice(0, -1).map((_, i) => {
+            const leftLocked = children[i]?.isLocked;
+            const otherUnlocked = children.filter(
+              (c, j) => j !== i && !c.isLocked
+            );
+            const disabled = leftLocked || otherUnlocked.length === 0 || total === 0;
+            const show =
+              hoveredIndex === i ||
+              hoveredIndex === i + 1 ||
+              drag?.handleIndex === i;
+
+            return (
+              <div
+                key={`h-${i}`}
+                className="absolute top-0 z-20 flex h-full w-5 -translate-x-1/2 items-center justify-center"
+                style={{
+                  left: `${cumPcts[i]}%`,
+                  cursor: disabled ? "default" : "col-resize",
+                  opacity: show && !disabled ? 1 : 0,
+                  transition: "opacity 100ms",
+                }}
+                onMouseEnter={() => {
+                  if (!drag) setHoveredIndex(i);
+                }}
+                onMouseDown={(e) => {
+                  if (disabled) return;
+                  e.preventDefault();
+                  startDrag(i, e.clientX);
+                }}
+                onTouchStart={(e) => {
+                  if (disabled || e.touches.length === 0) return;
+                  startDrag(i, e.touches[0].clientX);
+                }}
+              >
+                <div className="h-5 w-1 rounded-full bg-white shadow-[0_0_4px_rgba(0,0,0,0.4)]" />
+              </div>
+            );
+          })}
+      </div>
+
+      {/* Lock toggles below bar */}
+      <div className="flex">
+        {segments.map((seg) => (
+          <button
+            key={seg.item.id}
+            type="button"
+            onClick={() => onToggleLock(seg.item.id)}
+            style={{ width: `${seg.pct}%` }}
+            className="flex items-center justify-center py-0.5 text-muted-foreground transition-colors hover:text-foreground"
+            title={
+              seg.item.isLocked
+                ? `Unlock ${seg.item.name}`
+                : `Lock ${seg.item.name}`
+            }
+          >
+            {seg.item.isLocked ? (
+              <Lock className="h-3 w-3" />
+            ) : (
+              <Unlock className="h-3 w-3" />
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function AllocationGrid({
   items,
   income,
   onSliderChange,
   onManualEntry,
   onToggleLock,
+  onSetGroupAmounts,
 }: AllocationGridProps) {
   const categories = items.filter((it) => it.type === "category");
   const goals = items.filter((it) => it.type === "goal");
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const { groups, standalone } = useMemo(() => {
     const parentIds = new Set(
@@ -76,15 +440,6 @@ export function AllocationGrid({
     return { groups, standalone };
   }, [categories]);
 
-  function toggleGroup(parentId: string) {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(parentId)) next.delete(parentId);
-      else next.add(parentId);
-      return next;
-    });
-  }
-
   if (categories.length === 0 && goals.length === 0) {
     return (
       <div className="flex h-32 items-center justify-center text-muted-foreground">
@@ -100,32 +455,15 @@ export function AllocationGrid({
           <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Expenses
           </h3>
-          <div className="space-y-1">
+          <div className="space-y-3">
             {groups.map((group) => (
-              <div key={group.parent.id}>
-                <CategoryGroupHeader
-                  name={group.parent.name}
-                  color={group.parent.color}
-                  totalBudgeted={group.totalAmount}
-                  totalAverageSpend={group.totalAvg}
-                  isExpanded={!collapsed.has(group.parent.id)}
-                  onToggle={() => toggleGroup(group.parent.id)}
-                />
-                {!collapsed.has(group.parent.id) && (
-                  <div className="divide-y border-l-2 ml-3 pl-2">
-                    {group.children.map((item) => (
-                      <CategorySliderRow
-                        key={item.id}
-                        item={item}
-                        maxSlider={income}
-                        onSliderChange={onSliderChange}
-                        onManualEntry={onManualEntry}
-                        onToggleLock={onToggleLock}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
+              <GroupAllocationBar
+                key={group.parent.id}
+                group={group}
+                onSetGroupAmounts={onSetGroupAmounts}
+                onManualEntry={onManualEntry}
+                onToggleLock={onToggleLock}
+              />
             ))}
 
             {standalone.length > 0 && (

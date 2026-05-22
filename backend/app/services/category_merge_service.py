@@ -31,8 +31,6 @@ async def merge_categories(
     source = source_result.scalar_one_or_none()
     if not source:
         raise ValueError("Source category not found")
-    if source.is_system:
-        raise ValueError("Cannot merge a system category")
 
     target_result = await db.execute(
         select(Category).where(Category.id == target_id, Category.user_id == user_id)

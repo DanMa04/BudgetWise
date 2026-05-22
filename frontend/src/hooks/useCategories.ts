@@ -5,10 +5,12 @@ import {
   getCategoriesWithSpend,
   getMergeSuggestions,
   mergeCategories,
+  createCategory,
   subordinateCategory,
   unsubordinateCategory,
 } from "@/api/categories";
 import type {
+  CreateCategoryData,
   MergeCategoryRequest,
   SubordinateCategoryRequest,
 } from "@/types/models";
@@ -71,6 +73,23 @@ export function useMergeCategories() {
       queryClient.invalidateQueries({ queryKey: ["budgets"] });
       queryClient.invalidateQueries({ queryKey: ["budget-summary"] });
       queryClient.invalidateQueries({ queryKey: ["allocation-data"] });
+    },
+  });
+}
+
+export function useCreateCategory() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: CreateCategoryData) => {
+      const token = await getToken();
+      if (!token) throw new Error("Not authenticated");
+      return createCategory(data, token);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["categories-with-spend"] });
     },
   });
 }

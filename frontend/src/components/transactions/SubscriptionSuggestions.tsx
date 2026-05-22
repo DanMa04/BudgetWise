@@ -9,6 +9,7 @@ import {
   useApplySubscription,
 } from "@/hooks/useCategorization";
 import { useCategories } from "@/hooks/useCategories";
+import { useDismissedSet } from "@/hooks/useDismissedSet";
 import { formatCurrency } from "@/lib/formatters";
 import type { SubscriptionSuggestion } from "@/types/models";
 
@@ -134,7 +135,7 @@ function SuggestionRow({
 export function SubscriptionSuggestions() {
   const { data: suggestions = [], isLoading } = useSubscriptionSuggestions();
   const applyMutation = useApplySubscription();
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const { dismissed, dismiss } = useDismissedSet("budgetwise:dismissed-subscription-suggestions");
 
   const visible = suggestions.filter((s) => !dismissed.has(s.merchant));
 
@@ -145,10 +146,6 @@ export function SubscriptionSuggestions() {
       merchant_pattern: suggestion.merchant,
       create_rule: true,
     });
-  }
-
-  function handleDismiss(merchant: string) {
-    setDismissed((prev) => new Set(prev).add(merchant));
   }
 
   if (isLoading || visible.length === 0) {
@@ -176,7 +173,7 @@ export function SubscriptionSuggestions() {
             key={`${suggestion.merchant}-${suggestion.amount}`}
             suggestion={suggestion}
             onApply={handleApply}
-            onDismiss={handleDismiss}
+            onDismiss={dismiss}
             applying={applyMutation.isPending}
           />
         ))}

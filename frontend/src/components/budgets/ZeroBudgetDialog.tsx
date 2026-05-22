@@ -34,6 +34,7 @@ export function ZeroBudgetDialog({ open, onClose }: ZeroBudgetDialogProps) {
     setSlider,
     setManual,
     toggleLock,
+    setGroupAmounts,
   } = useAllocationState();
 
   useEffect(() => {
@@ -98,6 +99,7 @@ export function ZeroBudgetDialog({ open, onClose }: ZeroBudgetDialogProps) {
               onSliderChange={setSlider}
               onManualEntry={setManual}
               onToggleLock={toggleLock}
+              onSetGroupAmounts={setGroupAmounts}
             />
           </div>
         )}

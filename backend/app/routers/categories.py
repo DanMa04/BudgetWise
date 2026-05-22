@@ -133,8 +133,6 @@ async def subordinate_category(
     ).scalar_one_or_none()
     if not source:
         raise HTTPException(status_code=404, detail="Source category not found")
-    if source.is_system:
-        raise HTTPException(status_code=400, detail="System categories cannot become children")
 
     await validate_parent_assignment(db, current_user.id, data.source_id, data.parent_id)
 
@@ -181,8 +179,6 @@ async def update_category(
     category = result.scalar_one_or_none()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
-    if category.is_system:
-        raise HTTPException(status_code=403, detail="Cannot modify system category")
 
     update_data = data.model_dump(exclude_unset=True)
     if "parent_id" in update_data and update_data["parent_id"] is not None:

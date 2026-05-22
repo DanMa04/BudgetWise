@@ -47,7 +47,31 @@ type Action =
   | { type: "SET_SLIDER"; id: string; amount: number }
   | { type: "SET_MANUAL"; id: string; amount: number }
   | { type: "TOGGLE_LOCK"; id: string }
+  | { type: "SET_GROUP_AMOUNTS"; updates: Array<{ id: string; amount: number }> }
   | { type: "INIT"; data: AllocationData };
+
+function getEffectiveLockInfo(items: AllocationItem[]) {
+  const parentItemIds = new Set(
+    items
+      .filter((it) => it.parentId)
+      .map((it) => it.parentId!)
+      .filter((pid) => items.some((it) => it.id === pid))
+  );
+  const lockedParentIds = new Set(
+    items
+      .filter((it) => parentItemIds.has(it.id) && it.isLocked)
+      .map((it) => it.id)
+  );
+
+  function isEffectivelyLocked(item: AllocationItem): boolean {
+    if (parentItemIds.has(item.id)) return true;
+    if (item.isLocked) return true;
+    if (item.parentId && lockedParentIds.has(item.parentId)) return true;
+    return false;
+  }
+
+  return { parentItemIds, lockedParentIds, isEffectivelyLocked };
+}
 
 function redistribute(
   items: AllocationItem[],
@@ -55,15 +79,18 @@ function redistribute(
   newAmount: number,
   income: number
 ): AllocationItem[] {
+  const { isEffectivelyLocked } = getEffectiveLockInfo(items);
+
   const lockedTotal = items.reduce(
-    (sum, it) => sum + (it.isLocked && it.id !== changedId ? it.amount : 0),
+    (sum, it) =>
+      sum + (isEffectivelyLocked(it) && it.id !== changedId ? it.amount : 0),
     0
   );
   const pool = Math.max(0, income - lockedTotal);
   const clampedAmount = Math.min(Math.max(0, newAmount), pool);
 
   const otherUnlocked = items.filter(
-    (it) => !it.isLocked && it.id !== changedId
+    (it) => !isEffectivelyLocked(it) && it.id !== changedId
   );
   const remainingPool = Math.max(0, pool - clampedAmount);
 
@@ -73,7 +100,8 @@ function redistribute(
   if (otherUnlocked.length === 0) {
     distributed = new Map();
   } else if (otherTotal === 0) {
-    const equal = Math.floor((remainingPool / otherUnlocked.length) * 100) / 100;
+    const equal =
+      Math.floor((remainingPool / otherUnlocked.length) * 100) / 100;
     distributed = new Map(otherUnlocked.map((it) => [it.id, equal]));
   } else {
     distributed = new Map(
@@ -84,7 +112,6 @@ function redistribute(
     );
   }
 
-  // Fix rounding: last unlocked item absorbs remainder
   if (otherUnlocked.length > 0) {
     const distributedSum = Array.from(distributed.values()).reduce(
       (a, b) => a + b,
@@ -109,13 +136,15 @@ function redistributeOnIncomeChange(
   items: AllocationItem[],
   newIncome: number
 ): AllocationItem[] {
+  const { isEffectivelyLocked } = getEffectiveLockInfo(items);
+
   const lockedTotal = items.reduce(
-    (sum, it) => sum + (it.isLocked ? it.amount : 0),
+    (sum, it) => sum + (isEffectivelyLocked(it) ? it.amount : 0),
     0
   );
   const pool = Math.max(0, newIncome - lockedTotal);
 
-  const unlocked = items.filter((it) => !it.isLocked);
+  const unlocked = items.filter((it) => !isEffectivelyLocked(it));
   const unlockedTotal = unlocked.reduce((sum, it) => sum + it.amount, 0);
 
   if (unlocked.length === 0) return items;
@@ -133,7 +162,6 @@ function redistributeOnIncomeChange(
     );
   }
 
-  // Fix rounding
   const distributedSum = Array.from(distributed.values()).reduce(
     (a, b) => a + b,
     0
@@ -217,32 +245,42 @@ function reducer(state: AllocationState, action: Action): AllocationState {
         action.id,
         action.amount,
         state.income
-      ).map((it) =>
-        it.id === action.id ? { ...it, isLocked: true } : it
-      );
+      ).map((it) => (it.id === action.id ? { ...it, isLocked: true } : it));
       return { ...state, items };
+    }
+
+    case "SET_GROUP_AMOUNTS": {
+      const updateMap = new Map(
+        action.updates.map((u) => [u.id, u.amount])
+      );
+      return {
+        ...state,
+        items: state.items.map((it) =>
+          updateMap.has(it.id)
+            ? { ...it, amount: updateMap.get(it.id)! }
+            : it
+        ),
+      };
     }
 
     case "TOGGLE_LOCK": {
       const toggled = state.items.map((it) =>
         it.id === action.id ? { ...it, isLocked: !it.isLocked } : it
       );
-      // Rebalance unlocked pool after toggle
+      const { isEffectivelyLocked } = getEffectiveLockInfo(toggled);
+
       const lockedTotal = toggled.reduce(
-        (sum, it) => sum + (it.isLocked ? it.amount : 0),
+        (sum, it) => sum + (isEffectivelyLocked(it) ? it.amount : 0),
         0
       );
       const pool = Math.max(0, state.income - lockedTotal);
-      const unlocked = toggled.filter((it) => !it.isLocked);
+      const unlocked = toggled.filter((it) => !isEffectivelyLocked(it));
       const unlockedTotal = unlocked.reduce((sum, it) => sum + it.amount, 0);
 
       if (unlocked.length > 0 && unlockedTotal > 0) {
         const scale = pool / unlockedTotal;
         if (Math.abs(scale - 1) > 0.001) {
-          const items = redistributeOnIncomeChange(
-            toggled,
-            state.income
-          );
+          const items = redistributeOnIncomeChange(toggled, state.income);
           return { ...state, items };
         }
       }
@@ -267,23 +305,32 @@ export function useAllocationState() {
     []
   );
   const setSlider = useCallback(
-    (id: string, amount: number) => dispatch({ type: "SET_SLIDER", id, amount }),
+    (id: string, amount: number) =>
+      dispatch({ type: "SET_SLIDER", id, amount }),
     []
   );
   const setManual = useCallback(
-    (id: string, amount: number) => dispatch({ type: "SET_MANUAL", id, amount }),
+    (id: string, amount: number) =>
+      dispatch({ type: "SET_MANUAL", id, amount }),
     []
   );
   const toggleLock = useCallback(
     (id: string) => dispatch({ type: "TOGGLE_LOCK", id }),
     []
   );
+  const setGroupAmounts = useCallback(
+    (updates: Array<{ id: string; amount: number }>) =>
+      dispatch({ type: "SET_GROUP_AMOUNTS", updates }),
+    []
+  );
 
   const allocated = state.items.reduce((sum, it) => sum + it.amount, 0);
   const unallocated = Math.max(0, state.income - allocated);
   const lockedOverBudget =
-    state.items.reduce((sum, it) => sum + (it.isLocked ? it.amount : 0), 0) >
-    state.income;
+    state.items.reduce(
+      (sum, it) => sum + (it.isLocked ? it.amount : 0),
+      0
+    ) > state.income;
 
   return {
     income: state.income,
@@ -296,5 +343,6 @@ export function useAllocationState() {
     setSlider,
     setManual,
     toggleLock,
+    setGroupAmounts,
   };
 }

@@ -12,9 +12,8 @@ import {
   useDroppable,
 } from "@dnd-kit/core";
 import type { DragStartEvent, DragEndEvent } from "@dnd-kit/core";
-import { Search, ChevronRight, CornerDownRight } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { CategoryCard } from "./CategoryCard";
 import { MergeConfirmDialog } from "./MergeConfirmDialog";
@@ -44,7 +43,6 @@ function buildCategoryTree(
   const filteredIds = new Set(filtered.map((c) => c.id));
   const catById = new Map(categories.map((c) => [c.id, c]));
 
-  // When searching, also include parents of matched children
   if (search) {
     for (const c of filtered) {
       if (c.parent_id && !filteredIds.has(c.parent_id)) {
@@ -106,14 +104,11 @@ function DraggableDroppableCard({
   category,
   selectedId,
   onTap,
-  indent,
 }: {
   category: CategoryWithSpend;
   selectedId: string | null;
   onTap: (cat: CategoryWithSpend) => void;
-  indent?: boolean;
 }) {
-  const canDrag = !category.is_system;
   const {
     attributes,
     listeners,
@@ -121,7 +116,6 @@ function DraggableDroppableCard({
     isDragging,
   } = useDraggable({
     id: category.id,
-    disabled: !canDrag,
     data: category,
   });
   const { setNodeRef: setDropRef, isOver } = useDroppable({
@@ -141,21 +135,96 @@ function DraggableDroppableCard({
     <div
       onClick={() => onTap(category)}
       style={{ opacity: isDragging ? 0.4 : 1 }}
-      className={indent ? "flex items-center gap-1" : ""}
     >
-      {indent && (
-        <CornerDownRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-      )}
-      <div className={indent ? "flex-1" : ""}>
-        <CategoryCard
-          ref={setRef}
-          category={category}
-          isSelected={selectedId === category.id}
-          isDropTarget={isOver}
-          listeners={canDrag ? listeners : undefined}
-          attributes={canDrag ? attributes : undefined}
+      <CategoryCard
+        ref={setRef}
+        category={category}
+        isSelected={selectedId === category.id}
+        isDropTarget={isOver}
+        listeners={listeners}
+        attributes={attributes}
+      />
+    </div>
+  );
+}
+
+function CategoryStack({
+  node,
+  selectedId,
+  onTap,
+  isDragging,
+  expanded,
+  onExpand,
+  onCollapse,
+}: {
+  node: CategoryNode;
+  selectedId: string | null;
+  onTap: (cat: CategoryWithSpend) => void;
+  isDragging: boolean;
+  expanded: boolean;
+  onExpand: () => void;
+  onCollapse: () => void;
+}) {
+  const childCount = node.children.length;
+  const peekCount = Math.min(childCount, 2);
+
+  return (
+    <div
+      className="relative"
+      style={{ zIndex: expanded ? 40 : undefined }}
+      onMouseEnter={() => {
+        if (!isDragging) onExpand();
+      }}
+      onMouseLeave={onCollapse}
+    >
+      {/* Peek layers behind parent card */}
+      {!expanded &&
+        Array.from({ length: peekCount }, (_, i) => (
+          <div
+            key={i}
+            className="absolute inset-0 rounded-lg border bg-card"
+            style={{
+              transform: `translate(${(i + 1) * 3}px, ${(i + 1) * 4}px)`,
+              zIndex: peekCount - i,
+            }}
+          >
+            <div
+              className="absolute left-0 top-0 h-full w-1 rounded-l-lg"
+              style={{
+                backgroundColor:
+                  node.children[i]?.category.color || "#6b7280",
+              }}
+            />
+          </div>
+        ))}
+
+      {/* Parent card on top */}
+      <div className="relative" style={{ zIndex: peekCount + 1 }}>
+        <DraggableDroppableCard
+          category={node.category}
+          selectedId={selectedId}
+          onTap={() => (expanded ? onCollapse() : onExpand())}
         />
+        <div className="pointer-events-none absolute -right-1.5 -top-1.5 z-20 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground shadow-sm">
+          +{childCount}
+        </div>
       </div>
+
+      {/* Expanded children panel */}
+      {expanded && (
+        <div className="absolute left-0 right-0 top-full z-50 pt-1">
+          <div className="space-y-1 rounded-lg border bg-card p-2 shadow-lg">
+            {node.children.map((child) => (
+              <DraggableDroppableCard
+                key={child.category.id}
+                category={child.category}
+                selectedId={selectedId}
+                onTap={onTap}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -167,15 +236,13 @@ export function CategoryHierarchyBoard() {
   const [search, setSearch] = useState("");
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [expandedStackId, setExpandedStackId] = useState<string | null>(null);
 
-  // Action choice dialog state
   const [pendingSource, setPendingSource] =
     useState<CategoryWithSpend | null>(null);
   const [pendingTarget, setPendingTarget] =
     useState<CategoryWithSpend | null>(null);
 
-  // Merge confirm dialog state
   const [mergeSource, setMergeSource] = useState<CategoryWithSpend | null>(
     null
   );
@@ -213,8 +280,6 @@ export function CategoryHierarchyBoard() {
     source: CategoryWithSpend,
     target: CategoryWithSpend
   ): { allowed: boolean; reason?: string } {
-    if (source.is_system)
-      return { allowed: false, reason: "System categories cannot become children." };
     if (target.parent_id !== null)
       return {
         allowed: false,
@@ -276,18 +341,17 @@ export function CategoryHierarchyBoard() {
 
     const source = catById.get(String(active.id));
     const target = catById.get(String(over.id));
-    if (source && target && !source.is_system) {
+    if (source && target) {
       openActionChoice(source, target);
     }
   }
 
   function handleTap(cat: CategoryWithSpend) {
     if (draggingId) return;
+    setExpandedStackId(null);
 
     if (!selectedId) {
-      if (!cat.is_system) {
-        setSelectedId(cat.id);
-      }
+      setSelectedId(cat.id);
       return;
     }
 
@@ -301,18 +365,6 @@ export function CategoryHierarchyBoard() {
       openActionChoice(source, cat);
     }
     setSelectedId(null);
-  }
-
-  function toggleCollapse(parentId: string) {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(parentId)) {
-        next.delete(parentId);
-      } else {
-        next.add(parentId);
-      }
-      return next;
-    });
   }
 
   function closeMergeDialog() {
@@ -359,72 +411,51 @@ export function CategoryHierarchyBoard() {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="space-y-4">
-          {/* Parent groups */}
-          {tree.map((node) => (
-            <div key={node.category.id} className="space-y-1">
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0"
-                  onClick={() => toggleCollapse(node.category.id)}
-                >
-                  <ChevronRight
-                    className={`h-4 w-4 transition-transform ${
-                      !collapsed.has(node.category.id) ? "rotate-90" : ""
-                    }`}
-                  />
-                </Button>
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  {node.category.name}
-                  <span className="ml-1 normal-case tracking-normal">
-                    ({node.children.length} sub)
-                  </span>
-                </span>
-              </div>
+        {tree.length > 0 && (
+          <div className="rounded-lg border bg-card p-4">
+            <h3 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Grouped
+              <span className="ml-1.5 normal-case tracking-normal font-normal">
+                ({tree.length})
+              </span>
+            </h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              {tree.map((node) => (
+                <CategoryStack
+                  key={node.category.id}
+                  node={node}
+                  selectedId={selectedId}
+                  onTap={handleTap}
+                  isDragging={!!draggingId}
+                  expanded={expandedStackId === node.category.id}
+                  onExpand={() => setExpandedStackId(node.category.id)}
+                  onCollapse={() => setExpandedStackId(null)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        {standalone.length > 0 && (
+          <div className="rounded-lg border bg-card p-4">
+            <h3 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Ungrouped
+              <span className="ml-1.5 normal-case tracking-normal font-normal">
+                ({standalone.length})
+              </span>
+            </h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              {standalone.map((node) => (
                 <DraggableDroppableCard
+                  key={node.category.id}
                   category={node.category}
                   selectedId={selectedId}
                   onTap={handleTap}
                 />
-                {!collapsed.has(node.category.id) &&
-                  node.children.map((child) => (
-                    <DraggableDroppableCard
-                      key={child.category.id}
-                      category={child.category}
-                      selectedId={selectedId}
-                      onTap={handleTap}
-                      indent
-                    />
-                  ))}
-              </div>
+              ))}
             </div>
-          ))}
-
-          {/* Standalone categories */}
-          {standalone.length > 0 && (
-            <div className="space-y-1">
-              {tree.length > 0 && (
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Ungrouped
-                </span>
-              )}
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                {standalone.map((node) => (
-                  <DraggableDroppableCard
-                    key={node.category.id}
-                    category={node.category}
-                    selectedId={selectedId}
-                    onTap={handleTap}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         <DragOverlay>
           {draggingCategory && (
