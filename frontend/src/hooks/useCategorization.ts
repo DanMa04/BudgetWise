@@ -9,6 +9,7 @@ import {
   correctTransaction,
   bulkCategorize,
   trainModel,
+  rescanTransactions,
   getSubscriptionSuggestions,
   applySubscriptionSuggestion,
   confirmImportCategories,
@@ -149,6 +150,25 @@ export function useTrainModel() {
       const token = await getToken();
       if (!token) throw new Error("Not authenticated");
       return trainModel(token);
+    },
+  });
+}
+
+export function useRescanTransactions() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (categoryId?: string) => {
+      const token = await getToken();
+      if (!token) throw new Error("Not authenticated");
+      return rescanTransactions(token, categoryId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["categories-with-spend"] });
+      queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["budget-summary"] });
     },
   });
 }

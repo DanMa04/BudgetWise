@@ -12,7 +12,7 @@ import {
   useDroppable,
 } from "@dnd-kit/core";
 import type { DragStartEvent, DragEndEvent } from "@dnd-kit/core";
-import { Search, Unlink, ListFilter } from "lucide-react";
+import { Search, Unlink, MoreHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -20,7 +20,7 @@ import { CategoryCard } from "./CategoryCard";
 import { MergeConfirmDialog } from "./MergeConfirmDialog";
 import { ActionChoiceDialog } from "./ActionChoiceDialog";
 import { MergeSuggestionsBanner } from "./MergeSuggestionsBanner";
-import { TransferRulesDialog } from "./TransferRulesDialog";
+import { CategoryDetailDialog } from "./CategoryDetailDialog";
 import {
   useCategoriesWithSpend,
   useCategories,
@@ -28,8 +28,6 @@ import {
   useUnsubordinateCategory,
 } from "@/hooks/useCategories";
 import type { CategoryWithSpend } from "@/types/models";
-
-const P2P_NAMES = new Set(["venmo", "zelle", "cash app", "paypal", "apple cash"]);
 
 interface CategoryNode {
   category: CategoryWithSpend;
@@ -162,6 +160,7 @@ function CategoryStack({
   onExpand,
   onCollapse,
   onUngroup,
+  onDetail,
 }: {
   node: CategoryNode;
   selectedId: string | null;
@@ -171,6 +170,7 @@ function CategoryStack({
   onExpand: () => void;
   onCollapse: () => void;
   onUngroup: (categoryId: string) => void;
+  onDetail: (cat: CategoryWithSpend) => void;
 }) {
   const childCount = node.children.length;
   const peekCount = Math.min(childCount, 2);
@@ -215,6 +215,18 @@ function CategoryStack({
         <div className="pointer-events-none absolute -right-1.5 -top-1.5 z-20 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground shadow-sm">
           +{childCount}
         </div>
+        <Button
+          variant="secondary"
+          size="icon"
+          className="absolute -right-1 -bottom-1 z-20 h-6 w-6 rounded-full shadow-sm"
+          title="View transactions & rules"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDetail(node.category);
+          }}
+        >
+          <MoreHorizontal className="h-3 w-3" />
+        </Button>
       </div>
 
       {/* Expanded children panel */}
@@ -230,6 +242,18 @@ function CategoryStack({
                     onTap={onTap}
                   />
                 </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                  title="View transactions & rules"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDetail(child.category);
+                  }}
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -260,7 +284,7 @@ export function CategoryHierarchyBoard() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedStackId, setExpandedStackId] = useState<string | null>(null);
-  const [transferRulesCategory, setTransferRulesCategory] =
+  const [detailCategory, setDetailCategory] =
     useState<CategoryWithSpend | null>(null);
 
   const [pendingSource, setPendingSource] =
@@ -456,6 +480,7 @@ export function CategoryHierarchyBoard() {
                   onExpand={() => setExpandedStackId(node.category.id)}
                   onCollapse={() => setExpandedStackId(null)}
                   onUngroup={(id) => unsubordinate.mutate(id)}
+                  onDetail={setDetailCategory}
                 />
               ))}
             </div>
@@ -471,32 +496,27 @@ export function CategoryHierarchyBoard() {
               </span>
             </h3>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {standalone.map((node) => {
-                const isP2P = P2P_NAMES.has(node.category.name.toLowerCase());
-                return (
-                  <div key={node.category.id} className="relative">
-                    <DraggableDroppableCard
-                      category={node.category}
-                      selectedId={selectedId}
-                      onTap={handleTap}
-                    />
-                    {isP2P && (
-                      <Button
-                        variant="secondary"
-                        size="icon"
-                        className="absolute -right-1 -bottom-1 z-10 h-6 w-6 rounded-full shadow-sm"
-                        title="Transfer rules"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setTransferRulesCategory(node.category);
-                        }}
-                      >
-                        <ListFilter className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
+              {standalone.map((node) => (
+                <div key={node.category.id} className="relative">
+                  <DraggableDroppableCard
+                    category={node.category}
+                    selectedId={selectedId}
+                    onTap={handleTap}
+                  />
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="absolute -right-1 -bottom-1 z-10 h-6 w-6 rounded-full shadow-sm"
+                    title="View transactions & rules"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDetailCategory(node.category);
+                    }}
+                  >
+                    <MoreHorizontal className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -534,11 +554,11 @@ export function CategoryHierarchyBoard() {
         target={mergeTarget}
       />
 
-      {transferRulesCategory && (
-        <TransferRulesDialog
+      {detailCategory && (
+        <CategoryDetailDialog
           open
-          onClose={() => setTransferRulesCategory(null)}
-          sourceCategory={transferRulesCategory}
+          onClose={() => setDetailCategory(null)}
+          category={detailCategory}
           allCategories={plainCategories}
         />
       )}

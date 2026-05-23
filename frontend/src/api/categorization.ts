@@ -117,6 +117,18 @@ export async function trainModel(token: string): Promise<void> {
   );
 }
 
+export async function rescanTransactions(
+  token: string,
+  categoryId?: string
+): Promise<{ scanned: number; updated: number }> {
+  const params = categoryId ? `?category_id=${categoryId}` : "";
+  return apiFetch<{ scanned: number; updated: number }>(
+    `/api/v1/categorization/rescan${params}`,
+    { method: "POST" },
+    token
+  );
+}
+
 export async function confirmImportCategories(
   token: string
 ): Promise<{ confirmed: number }> {

@@ -467,14 +467,7 @@ async def apply_transfer_rules(
     txn_date: date,
     description: str,
 ) -> uuid.UUID | None:
-    """Second-pass: re-categorize P2P transactions using transfer rules."""
-    cat_result = await db.execute(
-        select(Category.name).where(Category.id == category_id)
-    )
-    cat_name = cat_result.scalar_one_or_none()
-    if not cat_name or cat_name.lower() not in P2P_CATEGORY_NAMES:
-        return None
-
+    """Re-categorize transactions using transfer rules for any source category."""
     result = await db.execute(
         select(TransferRule)
         .where(

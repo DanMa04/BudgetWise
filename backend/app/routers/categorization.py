@@ -18,6 +18,7 @@ from app.schemas.categorization_rule import (
     SubscriptionSuggestion,
 )
 from app.services.categorization_service import (
+    apply_transfer_rules,
     bulk_categorize_transactions,
     categorize_transaction,
     create_rule,
@@ -124,6 +125,48 @@ async def trigger_training(
     if not success:
         return {"status": "insufficient_data", "minimum_required": 50}
     return {"status": "trained"}
+
+
+@router.post("/rescan")
+async def rescan_transactions(
+    category_id: uuid.UUID | None = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Re-run categorization rules on existing transactions."""
+    from sqlalchemy import select
+
+    from app.models.transaction import Transaction
+
+    query = select(Transaction).where(Transaction.user_id == current_user.id)
+    if category_id:
+        query = query.where(Transaction.category_id == category_id)
+
+    result = await db.execute(query)
+    transactions = list(result.scalars().all())
+
+    updated = 0
+    for txn in transactions:
+        cat_id, confidence, source = await categorize_transaction(
+            db, current_user.id, txn.description, txn.amount, txn.date
+        )
+        if cat_id and cat_id != txn.category_id:
+            txn.category_id = cat_id
+            txn.category_confidence = confidence
+            txn.category_source = source
+            updated += 1
+
+        if txn.category_id:
+            override = await apply_transfer_rules(
+                db, current_user.id, txn.category_id, txn.amount, txn.date, txn.description
+            )
+            if override and override != txn.category_id:
+                txn.category_id = override
+                txn.category_source = "transfer_rule"
+                updated += 1
+
+    await db.flush()
+    return {"scanned": len(transactions), "updated": updated}
 
 
 @router.post("/confirm-imports")
