@@ -97,7 +97,7 @@ export async function bulkCategorize(
   token: string
 ): Promise<void> {
   await apiFetch<void>(
-    "/api/v1/categorization/bulk",
+    "/api/v1/categorization/bulk-categorize",
     {
       method: "POST",
       body: JSON.stringify({

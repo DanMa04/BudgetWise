@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import { RefreshCw, ChevronDown, ChevronUp, CheckSquare, Square, MinusSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,6 +12,7 @@ import { TransferRulesDialog } from "./TransferRulesDialog";
 import { useTransactions } from "@/hooks/useTransactions";
 import {
   useCorrectTransaction,
+  useBulkCategorize,
   useRescanTransactions,
 } from "@/hooks/useCategorization";
 import { formatCurrency, formatDate } from "@/lib/formatters";
@@ -37,14 +38,34 @@ export function CategoryDetailDialog({
     sort_dir: "desc",
   });
   const correctTransaction = useCorrectTransaction();
+  const bulkCategorize = useBulkCategorize();
   const rescan = useRescanTransactions();
   const [showRules, setShowRules] = useState(false);
   const [expandedTxn, setExpandedTxn] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchTargetId, setBatchTargetId] = useState("");
 
   const transactions = txnData?.items ?? [];
   const otherCategories = allCategories.filter(
     (c) => c.id !== category.id
   );
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === transactions.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(transactions.map((t) => t.id)));
+    }
+  }
 
   function handleRecategorize(txnId: string, newCategoryId: string) {
     correctTransaction.mutate(
@@ -53,9 +74,28 @@ export function CategoryDetailDialog({
     );
   }
 
+  function handleBulkRecategorize() {
+    if (selectedIds.size === 0 || !batchTargetId) return;
+    bulkCategorize.mutate(
+      {
+        transactionIds: Array.from(selectedIds),
+        categoryId: batchTargetId,
+      },
+      {
+        onSuccess: () => {
+          setSelectedIds(new Set());
+          setBatchTargetId("");
+        },
+      }
+    );
+  }
+
   function handleRescan() {
     rescan.mutate(category.id);
   }
+
+  const allSelected = transactions.length > 0 && selectedIds.size === transactions.length;
+  const someSelected = selectedIds.size > 0 && selectedIds.size < transactions.length;
 
   return (
     <>
@@ -105,6 +145,45 @@ export function CategoryDetailDialog({
             )}
           </div>
 
+          {/* Batch action bar */}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-2 rounded-lg border bg-muted/50 p-2">
+              <span className="shrink-0 text-sm font-medium">
+                {selectedIds.size} selected
+              </span>
+              <select
+                className="flex h-8 flex-1 rounded-md border border-input bg-transparent px-2 text-sm"
+                value={batchTargetId}
+                onChange={(e) => setBatchTargetId(e.target.value)}
+                disabled={bulkCategorize.isPending}
+              >
+                <option value="">Move to...</option>
+                {otherCategories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <Button
+                size="sm"
+                onClick={handleBulkRecategorize}
+                disabled={!batchTargetId || bulkCategorize.isPending}
+              >
+                {bulkCategorize.isPending ? "Moving..." : "Apply"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSelectedIds(new Set());
+                  setBatchTargetId("");
+                }}
+              >
+                Clear
+              </Button>
+            </div>
+          )}
+
           {isLoading ? (
             <div className="flex h-32 items-center justify-center">
               <Spinner className="h-6 w-6" />
@@ -115,34 +194,63 @@ export function CategoryDetailDialog({
             </p>
           ) : (
             <div className="space-y-1">
+              {/* Select all header */}
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
+                onClick={toggleSelectAll}
+              >
+                {allSelected ? (
+                  <CheckSquare className="h-3.5 w-3.5" />
+                ) : someSelected ? (
+                  <MinusSquare className="h-3.5 w-3.5" />
+                ) : (
+                  <Square className="h-3.5 w-3.5" />
+                )}
+                {allSelected ? "Deselect all" : "Select all"}
+              </button>
+
               {transactions.map((txn) => (
                 <div key={txn.id} className="rounded-lg border">
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3 p-2.5 text-left hover:bg-muted/50"
-                    onClick={() =>
-                      setExpandedTxn(expandedTxn === txn.id ? null : txn.id)
-                    }
-                  >
-                    <span className="shrink-0 text-xs text-muted-foreground w-20">
-                      {formatDate(txn.date)}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-sm">
-                      {txn.description}
-                    </span>
-                    <span
-                      className={`shrink-0 text-sm font-medium tabular-nums ${
-                        txn.amount < 0 ? "text-red-600" : "text-green-600"
-                      }`}
+                  <div className="flex items-center">
+                    <button
+                      type="button"
+                      className="shrink-0 p-2.5 text-muted-foreground hover:text-foreground"
+                      onClick={() => toggleSelect(txn.id)}
                     >
-                      {formatCurrency(Math.abs(txn.amount))}
-                    </span>
-                    {expandedTxn === txn.id ? (
-                      <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    )}
-                  </button>
+                      {selectedIds.has(txn.id) ? (
+                        <CheckSquare className="h-4 w-4 text-primary" />
+                      ) : (
+                        <Square className="h-4 w-4" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className="flex flex-1 items-center gap-3 py-2.5 pr-2.5 text-left hover:bg-muted/50"
+                      onClick={() =>
+                        setExpandedTxn(expandedTxn === txn.id ? null : txn.id)
+                      }
+                    >
+                      <span className="shrink-0 text-xs text-muted-foreground w-20">
+                        {formatDate(txn.date)}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-sm">
+                        {txn.description}
+                      </span>
+                      <span
+                        className={`shrink-0 text-sm font-medium tabular-nums ${
+                          txn.amount < 0 ? "text-red-600" : "text-green-600"
+                        }`}
+                      >
+                        {formatCurrency(Math.abs(txn.amount))}
+                      </span>
+                      {expandedTxn === txn.id ? (
+                        <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      )}
+                    </button>
+                  </div>
 
                   {expandedTxn === txn.id && (
                     <div className="border-t px-2.5 py-2 bg-muted/30">
