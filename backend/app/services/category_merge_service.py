@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.budget import Budget
 from app.models.categorization_rule import CategorizationRule
 from app.models.category import Category
+from app.models.category_merge_history import CategoryMergeHistory
 from app.models.transaction import Transaction
 from app.schemas.category import (
     CategoryRead,
@@ -105,6 +106,21 @@ async def merge_categories(
         update(Category)
         .where(Category.parent_id == source_id, Category.user_id == user_id)
         .values(parent_id=target_id)
+    )
+
+    # Record merge for audit trail
+    db.add(
+        CategoryMergeHistory(
+            user_id=user_id,
+            source_name=source.name,
+            source_color=source.color,
+            source_icon=source.icon,
+            source_is_income=source.is_income,
+            target_id=target_id,
+            transactions_moved=transactions_moved,
+            rules_moved=rules_moved,
+            budgets_merged=budgets_merged,
+        )
     )
 
     # Delete source category

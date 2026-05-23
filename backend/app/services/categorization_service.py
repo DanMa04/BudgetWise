@@ -1,5 +1,7 @@
 import re
 import uuid
+from datetime import date
+from decimal import Decimal
 from pathlib import Path
 
 from sqlalchemy import select, update
@@ -7,7 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ml.categorizer import MODELS_DIR, TransactionCategorizer
 from app.models.categorization_rule import CategorizationRule
+from app.models.category import Category
 from app.models.transaction import Transaction
+from app.models.transfer_rule import TransferRule
 from app.schemas.categorization_rule import RuleCreate, RuleUpdate
 
 MIN_TRAINING_SAMPLES = 50
@@ -26,16 +30,32 @@ def _load_model(user_id: uuid.UUID) -> TransactionCategorizer | None:
 
 
 async def categorize_transaction(
-    db: AsyncSession, user_id: uuid.UUID, description: str
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    description: str,
+    amount: Decimal | None = None,
+    txn_date: date | None = None,
 ) -> tuple[uuid.UUID | None, float, str]:
     rule_category = await apply_rules(db, user_id, description)
     if rule_category:
+        if amount is not None and txn_date is not None:
+            override = await apply_transfer_rules(
+                db, user_id, rule_category, amount, txn_date, description
+            )
+            if override:
+                return override, 1.0, "transfer_rule"
         return rule_category, 1.0, "rule"
 
     model = _load_model(user_id)
     if model:
         category_id, confidence = model.predict(description)
         if category_id:
+            if amount is not None and txn_date is not None:
+                override = await apply_transfer_rules(
+                    db, user_id, category_id, amount, txn_date, description
+                )
+                if override:
+                    return override, 1.0, "transfer_rule"
             return category_id, confidence, "ml"
         return None, confidence, "ml"
 
@@ -400,6 +420,12 @@ DEFAULT_RULES: list[tuple[str, str, str]] = [
     ("salary", "contains", "Salary"),
     ("dividend", "contains", "Investments"),
     ("interest payment", "contains", "Investments"),
+    # P2P Transfers — regex rules with high priority so they match before generic merchants
+    (r"(?i)(venmo|paypal\*venmo)", "regex", "Venmo"),
+    (r"(?i)zelle", "regex", "Zelle"),
+    (r"(?i)(sqc\*|cash\s*app|square\s*inc.*cash)", "regex", "Cash App"),
+    (r"(?i)(paypal|pp\*|pypl)", "regex", "PayPal"),
+    (r"(?i)apple\s*cash", "regex", "Apple Cash"),
 ]
 
 
@@ -416,14 +442,110 @@ async def seed_default_rules(db: AsyncSession, user_id: uuid.UUID) -> None:
         cat_id = categories.get(category_name.lower())
         if not cat_id:
             continue
+        priority = 10 if rule_type == "regex" else 5
         rule = CategorizationRule(
             user_id=user_id,
             category_id=cat_id,
             rule_type=rule_type,
             pattern=pattern,
-            priority=5,
+            priority=priority,
             created_by="system",
         )
         db.add(rule)
+
+    await db.flush()
+
+
+P2P_CATEGORY_NAMES = {"venmo", "zelle", "cash app", "paypal", "apple cash"}
+
+
+async def apply_transfer_rules(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    category_id: uuid.UUID,
+    amount: Decimal,
+    txn_date: date,
+    description: str,
+) -> uuid.UUID | None:
+    """Second-pass: re-categorize P2P transactions using transfer rules."""
+    cat_result = await db.execute(
+        select(Category.name).where(Category.id == category_id)
+    )
+    cat_name = cat_result.scalar_one_or_none()
+    if not cat_name or cat_name.lower() not in P2P_CATEGORY_NAMES:
+        return None
+
+    result = await db.execute(
+        select(TransferRule)
+        .where(
+            TransferRule.user_id == user_id,
+            TransferRule.source_category_id == category_id,
+            TransferRule.is_active.is_(True),
+        )
+        .order_by(TransferRule.priority.desc())
+    )
+    rules = list(result.scalars().all())
+
+    abs_amount = abs(amount)
+    desc_lower = description.lower()
+
+    for rule in rules:
+        if rule.amount_exact is not None:
+            if abs(abs_amount - abs(rule.amount_exact)) > Decimal("0.01"):
+                continue
+
+        if rule.amount_min is not None and abs_amount < abs(rule.amount_min):
+            continue
+        if rule.amount_max is not None and abs_amount > abs(rule.amount_max):
+            continue
+
+        if rule.day_of_month is not None:
+            diff = abs(txn_date.day - rule.day_of_month)
+            if diff > rule.day_tolerance and (30 - diff) > rule.day_tolerance:
+                continue
+
+        if rule.counterparty_pattern:
+            if rule.counterparty_pattern.lower() not in desc_lower:
+                continue
+
+        rule.match_count += 1
+        await db.flush()
+        return rule.target_category_id
+
+    return None
+
+
+async def seed_p2p_rules(db: AsyncSession, user_id: uuid.UUID) -> None:
+    """Seed P2P detection rules for existing users who don't have them yet."""
+    result = await db.execute(
+        select(CategorizationRule.pattern).where(
+            CategorizationRule.user_id == user_id,
+            CategorizationRule.rule_type == "regex",
+        )
+    )
+    existing_patterns = {p.lower() for p in result.scalars().all()}
+
+    cat_result = await db.execute(
+        select(Category).where(Category.user_id == user_id)
+    )
+    categories = {c.name.lower(): c.id for c in cat_result.scalars().all()}
+
+    p2p_rules = [r for r in DEFAULT_RULES if r[1] == "regex"]
+    for pattern, rule_type, category_name in p2p_rules:
+        if pattern.lower() in existing_patterns:
+            continue
+        cat_id = categories.get(category_name.lower())
+        if not cat_id:
+            continue
+        db.add(
+            CategorizationRule(
+                user_id=user_id,
+                category_id=cat_id,
+                rule_type=rule_type,
+                pattern=pattern,
+                priority=10,
+                created_by="system",
+            )
+        )
 
     await db.flush()

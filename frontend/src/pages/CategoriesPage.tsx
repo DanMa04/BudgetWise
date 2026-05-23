@@ -1,13 +1,17 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CategoryHierarchyBoard } from "@/components/categories/CategoryHierarchyBoard";
 import { AddCategoryDialog } from "@/components/categories/AddCategoryDialog";
-import { useCategories } from "@/hooks/useCategories";
+import { useCategories, useCategoriesWithSpend, useResetGroups } from "@/hooks/useCategories";
 
 export function CategoriesPage() {
   const [showAdd, setShowAdd] = useState(false);
   const { data: categories = [] } = useCategories();
+  const { data: categoriesWithSpend = [] } = useCategoriesWithSpend();
+  const resetGroups = useResetGroups();
+
+  const hasGroups = categoriesWithSpend.some((c) => c.parent_id !== null);
 
   return (
     <div className="space-y-6">
@@ -19,10 +23,23 @@ export function CategoriesPage() {
             to select on mobile.
           </p>
         </div>
-        <Button onClick={() => setShowAdd(true)} size="sm">
-          <Plus className="mr-1.5 h-4 w-4" />
-          Add
-        </Button>
+        <div className="flex items-center gap-2">
+          {hasGroups && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => resetGroups.mutate()}
+              disabled={resetGroups.isPending}
+            >
+              <RotateCcw className="mr-1.5 h-4 w-4" />
+              {resetGroups.isPending ? "Resetting..." : "Reset Groups"}
+            </Button>
+          )}
+          <Button onClick={() => setShowAdd(true)} size="sm">
+            <Plus className="mr-1.5 h-4 w-4" />
+            Add
+          </Button>
+        </div>
       </div>
 
       <CategoryHierarchyBoard />

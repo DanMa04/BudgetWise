@@ -1,5 +1,6 @@
 import uuid
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.category import Category
@@ -40,10 +41,18 @@ DEFAULT_CATEGORIES = [
     },
 ]
 
+P2P_CATEGORIES = [
+    {"name": "Venmo", "icon": "smartphone", "color": "#008CFF", "sort_order": 30},
+    {"name": "Zelle", "icon": "smartphone", "color": "#6D1ED4", "sort_order": 31},
+    {"name": "Cash App", "icon": "smartphone", "color": "#00D632", "sort_order": 32},
+    {"name": "PayPal", "icon": "smartphone", "color": "#003087", "sort_order": 33},
+    {"name": "Apple Cash", "icon": "smartphone", "color": "#000000", "sort_order": 34},
+]
+
 
 async def seed_default_categories(db: AsyncSession, user_id: uuid.UUID) -> list[Category]:
     categories = []
-    for cat_data in DEFAULT_CATEGORIES:
+    for cat_data in DEFAULT_CATEGORIES + P2P_CATEGORIES:
         category = Category(
             user_id=user_id,
             is_system=True,
@@ -53,3 +62,20 @@ async def seed_default_categories(db: AsyncSession, user_id: uuid.UUID) -> list[
         categories.append(category)
     await db.flush()
     return categories
+
+
+async def ensure_p2p_categories(db: AsyncSession, user_id: uuid.UUID) -> None:
+    """Seed P2P categories for existing users who don't have them yet."""
+    result = await db.execute(
+        select(Category.name).where(Category.user_id == user_id)
+    )
+    existing_names = {name.lower() for name in result.scalars().all()}
+
+    added = False
+    for cat_data in P2P_CATEGORIES:
+        if cat_data["name"].lower() not in existing_names:
+            db.add(Category(user_id=user_id, is_system=True, **cat_data))
+            added = True
+
+    if added:
+        await db.flush()

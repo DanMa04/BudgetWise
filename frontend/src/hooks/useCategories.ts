@@ -8,6 +8,7 @@ import {
   createCategory,
   subordinateCategory,
   unsubordinateCategory,
+  resetGroups,
 } from "@/api/categories";
 import type {
   CreateCategoryData,
@@ -130,6 +131,24 @@ export function useUnsubordinateCategory() {
       const token = await getToken();
       if (!token) throw new Error("Not authenticated");
       return unsubordinateCategory(categoryId, token);
+    },
+    onSuccess: () => {
+      for (const key of CATEGORY_INVALIDATION_KEYS) {
+        queryClient.invalidateQueries({ queryKey: key });
+      }
+    },
+  });
+}
+
+export function useResetGroups() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const token = await getToken();
+      if (!token) throw new Error("Not authenticated");
+      return resetGroups(token);
     },
     onSuccess: () => {
       for (const key of CATEGORY_INVALIDATION_KEYS) {

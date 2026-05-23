@@ -28,6 +28,7 @@ from app.routers import (
     reports,
     teller,
     transactions,
+    transfer_rules,
 )
 
 
@@ -78,6 +79,7 @@ app.include_router(reports.router, prefix="/api/v1")
 app.include_router(goals.router, prefix="/api/v1")
 app.include_router(notifications.router, prefix="/api/v1")
 app.include_router(teller.router, prefix="/api/v1")
+app.include_router(transfer_rules.router, prefix="/api/v1")
 app.include_router(extension.router, prefix="/api/v1")
 
 

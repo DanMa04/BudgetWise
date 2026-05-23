@@ -111,3 +111,13 @@ export async function unsubordinateCategory(
     token
   );
 }
+
+export async function resetGroups(
+  token: string
+): Promise<{ categories_ungrouped: number }> {
+  return apiFetch<{ categories_ungrouped: number }>(
+    "/api/v1/categories/reset-groups",
+    { method: "POST" },
+    token
+  );
+}

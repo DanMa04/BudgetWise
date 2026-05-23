@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -23,7 +23,8 @@ from app.services.category_merge_service import (
     get_merge_suggestions,
     merge_categories,
 )
-from app.services.category_service import seed_default_categories
+from app.services.category_service import ensure_p2p_categories, seed_default_categories
+from app.services.categorization_service import seed_p2p_rules
 
 router = APIRouter(prefix="/categories", tags=["categories"])
 
@@ -64,6 +65,17 @@ async def list_categories(
     # If user has no categories, seed the defaults
     if not categories:
         categories = await seed_default_categories(db, current_user.id)
+    else:
+        existing_names = {c.name.lower() for c in categories}
+        if "venmo" not in existing_names:
+            await ensure_p2p_categories(db, current_user.id)
+            await seed_p2p_rules(db, current_user.id)
+            result = await db.execute(
+                select(Category)
+                .where(Category.user_id == current_user.id)
+                .order_by(Category.sort_order)
+            )
+            categories = list(result.scalars().all())
 
     return categories
 
@@ -140,6 +152,20 @@ async def subordinate_category(
     await db.flush()
     await db.refresh(source)
     return source
+
+
+@router.post("/reset-groups", response_model=dict)
+async def reset_groups(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        update(Category)
+        .where(Category.user_id == current_user.id, Category.parent_id.isnot(None))
+        .values(parent_id=None)
+    )
+    await db.flush()
+    return {"categories_ungrouped": result.rowcount}
 
 
 @router.post("/unsubordinate", response_model=CategoryRead)

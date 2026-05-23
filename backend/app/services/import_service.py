@@ -590,6 +590,7 @@ async def _categorize_imported_transactions(
     try:
         from app.models.categorization_rule import CategorizationRule
         from app.services.categorization_service import (
+            apply_transfer_rules,
             categorize_transaction,
             seed_default_rules,
         )
@@ -611,6 +612,14 @@ async def _categorize_imported_transactions(
                     txn.category_id = cat_id
                     txn.category_confidence = confidence
                     txn.category_source = source
+
+                    # Second pass: re-categorize P2P transfers via transfer rules
+                    override = await apply_transfer_rules(
+                        db, user_id, cat_id, txn.amount, txn.date, txn.description
+                    )
+                    if override:
+                        txn.category_id = override
+                        txn.category_source = "transfer_rule"
             except Exception as exc:
                 logger.debug(
                     "Categorization failed for txn '%s': %s", txn.description, exc

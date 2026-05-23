@@ -493,3 +493,47 @@ export interface UpdateNotificationPreference {
   enabled?: boolean;
   threshold?: number | null;
 }
+
+export interface TransferRule {
+  id: string;
+  user_id: string;
+  source_category_id: string;
+  target_category_id: string;
+  name: string;
+  amount_exact: number | null;
+  amount_min: number | null;
+  amount_max: number | null;
+  day_of_month: number | null;
+  day_tolerance: number;
+  counterparty_pattern: string | null;
+  is_active: boolean;
+  priority: number;
+  match_count: number;
+  created_at: string;
+}
+
+export interface CreateTransferRuleData {
+  source_category_id: string;
+  target_category_id: string;
+  name: string;
+  amount_exact?: number | null;
+  amount_min?: number | null;
+  amount_max?: number | null;
+  day_of_month?: number | null;
+  day_tolerance?: number;
+  counterparty_pattern?: string | null;
+  priority?: number;
+}
+
+export interface UpdateTransferRuleData {
+  target_category_id?: string;
+  name?: string;
+  amount_exact?: number | null;
+  amount_min?: number | null;
+  amount_max?: number | null;
+  day_of_month?: number | null;
+  day_tolerance?: number;
+  counterparty_pattern?: string | null;
+  is_active?: boolean;
+  priority?: number;
+}

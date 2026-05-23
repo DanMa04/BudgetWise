@@ -12,19 +12,24 @@ import {
   useDroppable,
 } from "@dnd-kit/core";
 import type { DragStartEvent, DragEndEvent } from "@dnd-kit/core";
-import { Search } from "lucide-react";
+import { Search, Unlink, ListFilter } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { CategoryCard } from "./CategoryCard";
 import { MergeConfirmDialog } from "./MergeConfirmDialog";
 import { ActionChoiceDialog } from "./ActionChoiceDialog";
 import { MergeSuggestionsBanner } from "./MergeSuggestionsBanner";
+import { TransferRulesDialog } from "./TransferRulesDialog";
 import {
   useCategoriesWithSpend,
+  useCategories,
   useSubordinateCategory,
   useUnsubordinateCategory,
 } from "@/hooks/useCategories";
 import type { CategoryWithSpend } from "@/types/models";
+
+const P2P_NAMES = new Set(["venmo", "zelle", "cash app", "paypal", "apple cash"]);
 
 interface CategoryNode {
   category: CategoryWithSpend;
@@ -156,6 +161,7 @@ function CategoryStack({
   expanded,
   onExpand,
   onCollapse,
+  onUngroup,
 }: {
   node: CategoryNode;
   selectedId: string | null;
@@ -164,6 +170,7 @@ function CategoryStack({
   expanded: boolean;
   onExpand: () => void;
   onCollapse: () => void;
+  onUngroup: (categoryId: string) => void;
 }) {
   const childCount = node.children.length;
   const peekCount = Math.min(childCount, 2);
@@ -215,12 +222,27 @@ function CategoryStack({
         <div className="absolute left-0 right-0 top-full z-50 pt-1">
           <div className="space-y-1 rounded-lg border bg-card p-2 shadow-lg">
             {node.children.map((child) => (
-              <DraggableDroppableCard
-                key={child.category.id}
-                category={child.category}
-                selectedId={selectedId}
-                onTap={onTap}
-              />
+              <div key={child.category.id} className="flex items-center gap-1">
+                <div className="flex-1 min-w-0">
+                  <DraggableDroppableCard
+                    category={child.category}
+                    selectedId={selectedId}
+                    onTap={onTap}
+                  />
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                  title="Ungroup"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUngroup(child.category.id);
+                  }}
+                >
+                  <Unlink className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             ))}
           </div>
         </div>
@@ -231,12 +253,15 @@ function CategoryStack({
 
 export function CategoryHierarchyBoard() {
   const { data: categories = [], isLoading } = useCategoriesWithSpend();
+  const { data: plainCategories = [] } = useCategories();
   const subordinate = useSubordinateCategory();
   const unsubordinate = useUnsubordinateCategory();
   const [search, setSearch] = useState("");
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedStackId, setExpandedStackId] = useState<string | null>(null);
+  const [transferRulesCategory, setTransferRulesCategory] =
+    useState<CategoryWithSpend | null>(null);
 
   const [pendingSource, setPendingSource] =
     useState<CategoryWithSpend | null>(null);
@@ -430,6 +455,7 @@ export function CategoryHierarchyBoard() {
                   expanded={expandedStackId === node.category.id}
                   onExpand={() => setExpandedStackId(node.category.id)}
                   onCollapse={() => setExpandedStackId(null)}
+                  onUngroup={(id) => unsubordinate.mutate(id)}
                 />
               ))}
             </div>
@@ -445,14 +471,32 @@ export function CategoryHierarchyBoard() {
               </span>
             </h3>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {standalone.map((node) => (
-                <DraggableDroppableCard
-                  key={node.category.id}
-                  category={node.category}
-                  selectedId={selectedId}
-                  onTap={handleTap}
-                />
-              ))}
+              {standalone.map((node) => {
+                const isP2P = P2P_NAMES.has(node.category.name.toLowerCase());
+                return (
+                  <div key={node.category.id} className="relative">
+                    <DraggableDroppableCard
+                      category={node.category}
+                      selectedId={selectedId}
+                      onTap={handleTap}
+                    />
+                    {isP2P && (
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="absolute -right-1 -bottom-1 z-10 h-6 w-6 rounded-full shadow-sm"
+                        title="Transfer rules"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTransferRulesCategory(node.category);
+                        }}
+                      >
+                        <ListFilter className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -489,6 +533,15 @@ export function CategoryHierarchyBoard() {
         source={mergeSource}
         target={mergeTarget}
       />
+
+      {transferRulesCategory && (
+        <TransferRulesDialog
+          open
+          onClose={() => setTransferRulesCategory(null)}
+          sourceCategory={transferRulesCategory}
+          allCategories={plainCategories}
+        />
+      )}
     </div>
   );
 }
