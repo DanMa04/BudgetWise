@@ -1,12 +1,15 @@
 import { useState } from "react";
-import { Plus, RotateCcw } from "lucide-react";
+import { Plus, RotateCcw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CategoryHierarchyBoard } from "@/components/categories/CategoryHierarchyBoard";
 import { AddCategoryDialog } from "@/components/categories/AddCategoryDialog";
+import { SnapshotManager } from "@/components/categories/SnapshotManager";
+import { AiCategorizationDialog } from "@/components/categories/AiCategorizationDialog";
 import { useCategories, useCategoriesWithSpend, useResetGroups } from "@/hooks/useCategories";
 
 export function CategoriesPage() {
   const [showAdd, setShowAdd] = useState(false);
+  const [showAi, setShowAi] = useState(false);
   const { data: categories = [] } = useCategories();
   const { data: categoriesWithSpend = [] } = useCategoriesWithSpend();
   const resetGroups = useResetGroups();
@@ -24,6 +27,15 @@ export function CategoriesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAi(true)}
+          >
+            <Sparkles className="mr-1.5 h-4 w-4 text-violet-500" />
+            AI Organize
+          </Button>
+          <SnapshotManager />
           {hasGroups && (
             <Button
               variant="outline"
@@ -48,6 +60,11 @@ export function CategoriesPage() {
         open={showAdd}
         onClose={() => setShowAdd(false)}
         categories={categories}
+      />
+
+      <AiCategorizationDialog
+        open={showAi}
+        onClose={() => setShowAi(false)}
       />
     </div>
   );

@@ -25,6 +25,7 @@ from app.services.category_merge_service import (
 )
 from app.services.category_service import ensure_p2p_categories, seed_default_categories
 from app.services.categorization_service import seed_p2p_rules
+from app.services.snapshot_service import create_snapshot
 
 router = APIRouter(prefix="/categories", tags=["categories"])
 
@@ -107,6 +108,7 @@ async def merge_categories_endpoint(
     db: AsyncSession = Depends(get_db),
 ):
     try:
+        await create_snapshot(db, current_user.id, "Auto-save before merge", "pre_merge")
         return await merge_categories(
             db, current_user.id, data.source_id, data.target_id
         )
@@ -159,6 +161,7 @@ async def reset_groups(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await create_snapshot(db, current_user.id, "Auto-save before reset groups", "pre_reset")
     result = await db.execute(
         update(Category)
         .where(Category.user_id == current_user.id, Category.parent_id.isnot(None))

@@ -15,6 +15,7 @@ import {
   useDeleteTransferRule,
   useUpdateTransferRule,
 } from "@/hooks/useTransferRules";
+import { useRescanTransactions } from "@/hooks/useCategorization";
 import type { Category, TransferRule } from "@/types/models";
 
 interface TransferRulesDialogProps {
@@ -45,6 +46,7 @@ export function TransferRulesDialog({
   const createRule = useCreateTransferRule();
   const deleteRule = useDeleteTransferRule();
   const updateRule = useUpdateTransferRule();
+  const rescan = useRescanTransactions();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
 
@@ -52,8 +54,7 @@ export function TransferRulesDialog({
     (c) => c.id !== sourceCategory.id && !c.is_income
   );
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleCreate(applyAfter: boolean) {
     if (!form.name || !form.target_category_id) return;
 
     createRule.mutate(
@@ -72,9 +73,17 @@ export function TransferRulesDialog({
         onSuccess: () => {
           setForm(EMPTY_FORM);
           setShowForm(false);
+          if (applyAfter) {
+            rescan.mutate(sourceCategory.id);
+          }
         },
       }
     );
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    handleCreate(false);
   }
 
   function toggleActive(rule: TransferRule) {
@@ -98,6 +107,12 @@ export function TransferRulesDialog({
           Automatically re-categorize {sourceCategory.name} transfers based on
           amount, date, or counterparty.
         </p>
+
+        {rescan.isSuccess && rescan.data && (
+          <p className="text-xs text-muted-foreground bg-muted rounded-md px-2.5 py-1.5">
+            Re-scan complete: {rescan.data.updated} of {rescan.data.scanned} transactions updated.
+          </p>
+        )}
 
         {rules.length > 0 && (
           <div className="space-y-2">
@@ -241,9 +256,18 @@ export function TransferRulesDialog({
               <Button
                 type="submit"
                 size="sm"
+                variant="outline"
                 disabled={!form.name || !form.target_category_id || createRule.isPending}
               >
                 {createRule.isPending ? "Creating..." : "Create Rule"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={!form.name || !form.target_category_id || createRule.isPending || rescan.isPending}
+                onClick={() => handleCreate(true)}
+              >
+                {rescan.isPending ? "Scanning..." : "Create & Apply"}
               </Button>
             </div>
           </form>

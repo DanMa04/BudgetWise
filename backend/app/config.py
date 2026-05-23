@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     teller_api_key: str = ""
     teller_certificate_path: str = ""  # Path to mTLS cert for production
 
+    # Anthropic API
+    anthropic_api_key: str = ""
+
     # Database pool settings (only apply to PostgreSQL)
     db_pool_size: int = 10
     db_max_overflow: int = 20

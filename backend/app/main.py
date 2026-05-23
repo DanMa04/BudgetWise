@@ -16,6 +16,7 @@ from app.middleware.rate_limit import limiter
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.routers import (
     accounts,
+    ai_categorization,
     auth,
     budgets,
     categories,
@@ -26,6 +27,7 @@ from app.routers import (
     notifications,
     plaid,
     reports,
+    snapshots,
     teller,
     transactions,
     transfer_rules,
@@ -80,6 +82,8 @@ app.include_router(goals.router, prefix="/api/v1")
 app.include_router(notifications.router, prefix="/api/v1")
 app.include_router(teller.router, prefix="/api/v1")
 app.include_router(transfer_rules.router, prefix="/api/v1")
+app.include_router(snapshots.router, prefix="/api/v1")
+app.include_router(ai_categorization.router, prefix="/api/v1")
 app.include_router(extension.router, prefix="/api/v1")
 
 

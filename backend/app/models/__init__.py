@@ -3,6 +3,7 @@ from app.models.budget import Budget
 from app.models.categorization_rule import CategorizationRule
 from app.models.category import Category
 from app.models.category_merge_history import CategoryMergeHistory
+from app.models.category_snapshot import CategorySnapshot
 from app.models.goal import Goal
 from app.models.goal_contribution import GoalContribution
 from app.models.import_job import ImportJob
@@ -17,6 +18,7 @@ __all__ = [
     "User",
     "Category",
     "CategoryMergeHistory",
+    "CategorySnapshot",
     "CategorizationRule",
     "Account",
     "Transaction",
