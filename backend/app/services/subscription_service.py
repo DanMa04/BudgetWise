@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import date, timedelta
 from decimal import Decimal
@@ -20,7 +21,12 @@ MIN_OCCURRENCES = 3
 
 
 def _normalize_merchant(description: str) -> str:
-    return description.strip().lower()
+    cleaned = description.strip().lower()
+    # Strip trailing transaction-specific IDs (e.g., "AMAZON PRIME*MFG12345" → "amazon prime")
+    cleaned = re.sub(r"\*.*$", "", cleaned)
+    # Strip trailing reference/order numbers (e.g., "MERCHANT #12345")
+    cleaned = re.sub(r"\s*#\d+\s*$", "", cleaned)
+    return cleaned.strip()
 
 
 def _detect_interval(dates: list[date]) -> tuple[str, float] | None:
@@ -162,7 +168,10 @@ async def apply_subscription_suggestion(
             txn.is_recurring = True
             count += 1
 
-    if create_rule:
+    if create_rule and len(merchant_pattern) >= 7:
+        # Use starts_with so the rule only matches descriptions that begin with
+        # this merchant name, not unrelated vendors that happen to contain the string.
+        # Skip very short patterns (< 7 chars) to avoid overly broad rules.
         existing = await db.execute(
             select(CategorizationRule).where(
                 CategorizationRule.user_id == user_id,
@@ -174,7 +183,7 @@ async def apply_subscription_suggestion(
             rule = CategorizationRule(
                 user_id=user_id,
                 category_id=category_id,
-                rule_type="contains",
+                rule_type="starts_with",
                 pattern=merchant_pattern,
                 priority=10,
                 is_active=True,

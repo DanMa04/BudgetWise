@@ -9,6 +9,7 @@ interface CategorySliderRowProps {
   item: AllocationItem;
   maxSlider: number;
   onSliderChange: (id: string, amount: number) => void;
+  onSliderCommit?: () => void;
   onManualEntry: (id: string, amount: number) => void;
   onToggleLock: (id: string) => void;
 }
@@ -17,6 +18,7 @@ export function CategorySliderRow({
   item,
   maxSlider,
   onSliderChange,
+  onSliderCommit,
   onManualEntry,
   onToggleLock,
 }: CategorySliderRowProps) {
@@ -65,6 +67,7 @@ export function CategorySliderRow({
           ghostMarkerValue={item.averageSpend}
           disabled={item.isLocked}
           onChange={(val) => onSliderChange(item.id, val)}
+          onCommit={onSliderCommit}
         />
       </div>
 

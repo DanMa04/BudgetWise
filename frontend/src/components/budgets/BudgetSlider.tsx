@@ -7,6 +7,7 @@ interface BudgetSliderProps {
   ghostMarkerValue?: number;
   disabled?: boolean;
   onChange: (value: number) => void;
+  onCommit?: () => void;
 }
 
 export function BudgetSlider({
@@ -16,6 +17,7 @@ export function BudgetSlider({
   ghostMarkerValue,
   disabled = false,
   onChange,
+  onCommit,
 }: BudgetSliderProps) {
   const safeMax = Math.max(max, 1);
   const ghostPercent = ghostMarkerValue
@@ -30,6 +32,7 @@ export function BudgetSlider({
       step={1}
       disabled={disabled}
       onValueChange={(val: number) => onChange(Math.round(val))}
+      onValueCommitted={() => onCommit?.()}
       className="relative flex w-full touch-none items-center py-1"
     >
       <Slider.Control className="relative flex h-5 w-full items-center">

@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ml.categorizer import MODELS_DIR, TransactionCategorizer
@@ -429,6 +429,59 @@ DEFAULT_RULES: list[tuple[str, str, str]] = [
 ]
 
 
+PRIORITY_BUMPS: set[str] = {
+    "amazon prime", "youtube premium", "apple.com/bill",
+    "disney+", "hbo max", "uber eats",
+}
+
+
+async def repair_rule_priorities(db: AsyncSession, user_id: uuid.UUID) -> None:
+    """One-time repairs to categorization rules. Idempotent — safe to call repeatedly.
+
+    1. Bumps more-specific seed rules to priority 6 so they win over broader rules
+       with the same type (e.g., "amazon prime" must beat "amazon → Shopping").
+    2. Converts legacy subscription-created "contains" rules to "starts_with" so
+       they don't accidentally catch transactions from different vendors that share
+       a common prefix (e.g., "amazon" shouldn't catch all Amazon transactions).
+    """
+    if PRIORITY_BUMPS:
+        await db.execute(
+            update(CategorizationRule)
+            .where(
+                CategorizationRule.user_id == user_id,
+                CategorizationRule.created_by == "system",
+                CategorizationRule.pattern.in_(PRIORITY_BUMPS),
+                CategorizationRule.priority < 6,
+            )
+            .values(priority=6)
+        )
+
+    # Fix overly-broad subscription rules: "contains" → "starts_with" for specific ones
+    await db.execute(
+        update(CategorizationRule)
+        .where(
+            CategorizationRule.user_id == user_id,
+            CategorizationRule.created_by == "subscription",
+            CategorizationRule.rule_type == "contains",
+            func.length(CategorizationRule.pattern) >= 7,
+        )
+        .values(rule_type="starts_with")
+    )
+
+    # Delete subscription rules whose pattern is too short (< 7 chars) to be specific.
+    # System seed rules already cover these merchants correctly.
+    await db.execute(
+        delete(CategorizationRule)
+        .where(
+            CategorizationRule.user_id == user_id,
+            CategorizationRule.created_by == "subscription",
+            func.length(CategorizationRule.pattern) < 7,
+        )
+    )
+
+    await db.flush()
+
+
 async def seed_default_rules(db: AsyncSession, user_id: uuid.UUID) -> None:
     """Create default categorization rules for a new user based on common merchants."""
     from app.models.category import Category
@@ -442,7 +495,12 @@ async def seed_default_rules(db: AsyncSession, user_id: uuid.UUID) -> None:
         cat_id = categories.get(category_name.lower())
         if not cat_id:
             continue
-        priority = 10 if rule_type == "regex" else 5
+        if rule_type == "regex":
+            priority = 10
+        elif pattern in PRIORITY_BUMPS:
+            priority = 6
+        else:
+            priority = 5
         rule = CategorizationRule(
             user_id=user_id,
             category_id=cat_id,
@@ -454,6 +512,7 @@ async def seed_default_rules(db: AsyncSession, user_id: uuid.UUID) -> None:
         db.add(rule)
 
     await db.flush()
+    await repair_rule_priorities(db, user_id)
 
 
 P2P_CATEGORY_NAMES = {"venmo", "zelle", "cash app", "paypal", "apple cash"}

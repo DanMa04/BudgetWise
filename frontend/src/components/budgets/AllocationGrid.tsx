@@ -51,6 +51,7 @@ function GroupAllocationBar({
   const barRef = useRef<HTMLDivElement>(null);
   const setGroupRef = useRef(onSetGroupAmounts);
   setGroupRef.current = onSetGroupAmounts;
+  const stableChildOrderRef = useRef<string[]>([]);
 
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -67,13 +68,24 @@ function GroupAllocationBar({
     setTotalInput(group.totalAmount.toFixed(0));
   }, [group.totalAmount]);
 
-  const segments = children.map((child) => ({
-    item: child,
-    pct:
-      total > 0
-        ? (child.amount / total) * 100
-        : 100 / Math.max(children.length, 1),
-  }));
+  const segments = useMemo(() => {
+    let ordered = children;
+    if (drag !== null && stableChildOrderRef.current.length > 0) {
+      const orderMap = new Map(
+        stableChildOrderRef.current.map((id, i) => [id, i]),
+      );
+      ordered = [...children].sort(
+        (a, b) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999),
+      );
+    }
+    return ordered.map((child) => ({
+      item: child,
+      pct:
+        total > 0
+          ? (child.amount / total) * 100
+          : 100 / Math.max(children.length, 1),
+    }));
+  }, [children, drag, total]);
 
   const cumPcts = useMemo(() => {
     const result: number[] = [];
@@ -88,6 +100,7 @@ function GroupAllocationBar({
   const startDrag = useCallback(
     (handleIndex: number, clientX: number) => {
       if (total === 0) return;
+      stableChildOrderRef.current = children.map((c) => c.id);
       const adjusted = children[handleIndex];
       if (adjusted.isLocked) return;
 
@@ -460,6 +473,23 @@ export function AllocationGrid({
   const categories = items.filter((it) => it.type === "category");
   const goals = items.filter((it) => it.type === "goal");
 
+  const [isDragging, setIsDragging] = useState(false);
+  const standaloneOrderRef = useRef<string[]>([]);
+  const groupOrderRef = useRef<string[]>([]);
+  const groupChildOrderRef = useRef<Map<string, string[]>>(new Map());
+
+  const handleSliderChange = useCallback(
+    (id: string, amount: number) => {
+      setIsDragging(true);
+      onSliderChange(id, amount);
+    },
+    [onSliderChange],
+  );
+
+  const handleSliderCommit = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
   const { groups, standalone } = useMemo(() => {
     const parentIds = new Set(
       categories.filter((c) => c.parentId).map((c) => c.parentId!)
@@ -494,17 +524,52 @@ export function AllocationGrid({
       }
     }
 
-    for (const group of groupMap.values()) {
-      group.children.sort((a, b) => b.amount - a.amount);
+    const groups = Array.from(groupMap.values());
+
+    if (isDragging) {
+      const standaloneOrder = new Map(
+        standaloneOrderRef.current.map((id, i) => [id, i]),
+      );
+      const groupOrder = new Map(
+        groupOrderRef.current.map((id, i) => [id, i]),
+      );
+      standalone.sort(
+        (a, b) => (standaloneOrder.get(a.id) ?? 999) - (standaloneOrder.get(b.id) ?? 999),
+      );
+      for (const group of groups) {
+        const childOrder = new Map(
+          (groupChildOrderRef.current.get(group.parent.id) ?? []).map(
+            (id, i) => [id, i],
+          ),
+        );
+        group.children.sort(
+          (a, b) => (childOrder.get(a.id) ?? 999) - (childOrder.get(b.id) ?? 999),
+        );
+      }
+      groups.sort(
+        (a, b) =>
+          (groupOrder.get(a.parent.id) ?? 999) -
+          (groupOrder.get(b.parent.id) ?? 999),
+      );
+    } else {
+      standalone.sort((a, b) => b.amount - a.amount);
+      for (const group of groups) {
+        group.children.sort((a, b) => b.amount - a.amount);
+      }
+      groups.sort((a, b) => b.totalAmount - a.totalAmount);
+
+      standaloneOrderRef.current = standalone.map((s) => s.id);
+      groupOrderRef.current = groups.map((g) => g.parent.id);
+      for (const group of groups) {
+        groupChildOrderRef.current.set(
+          group.parent.id,
+          group.children.map((c) => c.id),
+        );
+      }
     }
 
-    const groups = Array.from(groupMap.values()).sort(
-      (a, b) => b.totalAmount - a.totalAmount
-    );
-    standalone.sort((a, b) => b.amount - a.amount);
-
     return { groups, standalone };
-  }, [categories]);
+  }, [categories, isDragging]);
 
   if (categories.length === 0 && goals.length === 0) {
     return (
@@ -539,7 +604,8 @@ export function AllocationGrid({
                     key={item.id}
                     item={item}
                     maxSlider={income}
-                    onSliderChange={onSliderChange}
+                    onSliderChange={handleSliderChange}
+                    onSliderCommit={handleSliderCommit}
                     onManualEntry={onManualEntry}
                     onToggleLock={onToggleLock}
                   />

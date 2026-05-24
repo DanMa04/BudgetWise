@@ -25,7 +25,7 @@ from app.services.category_merge_service import (
     merge_categories,
 )
 from app.services.category_service import ensure_p2p_categories, seed_default_categories
-from app.services.categorization_service import seed_p2p_rules
+from app.services.categorization_service import repair_rule_priorities, seed_p2p_rules
 from app.services.snapshot_service import create_snapshot
 
 router = APIRouter(prefix="/categories", tags=["categories"])
@@ -69,9 +69,15 @@ async def list_categories(
         categories = await seed_default_categories(db, current_user.id)
     else:
         existing_names = {c.name.lower() for c in categories}
+        needs_refresh = False
         if "venmo" not in existing_names:
             await ensure_p2p_categories(db, current_user.id)
             await seed_p2p_rules(db, current_user.id)
+            needs_refresh = True
+        # Idempotent: bumps more-specific seed rules to priority 6 so they beat
+        # broader rules of the same type (e.g., "amazon prime" vs "amazon").
+        await repair_rule_priorities(db, current_user.id)
+        if needs_refresh:
             result = await db.execute(
                 select(Category)
                 .where(Category.user_id == current_user.id)
