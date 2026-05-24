@@ -21,6 +21,7 @@ import { MergeConfirmDialog } from "./MergeConfirmDialog";
 import { ActionChoiceDialog } from "./ActionChoiceDialog";
 import { MergeSuggestionsBanner } from "./MergeSuggestionsBanner";
 import { CategoryDetailDialog } from "./CategoryDetailDialog";
+import { DeleteCategoryDialog } from "./DeleteCategoryDialog";
 import {
   useCategoriesWithSpend,
   useCategories,
@@ -107,10 +108,12 @@ function DraggableDroppableCard({
   category,
   selectedId,
   onTap,
+  onDelete,
 }: {
   category: CategoryWithSpend;
   selectedId: string | null;
   onTap: (cat: CategoryWithSpend) => void;
+  onDelete?: (cat: CategoryWithSpend) => void;
 }) {
   const {
     attributes,
@@ -131,7 +134,7 @@ function DraggableDroppableCard({
       setDragRef(node);
       setDropRef(node);
     },
-    [setDragRef, setDropRef]
+    [setDragRef, setDropRef],
   );
 
   return (
@@ -144,6 +147,7 @@ function DraggableDroppableCard({
         category={category}
         isSelected={selectedId === category.id}
         isDropTarget={isOver}
+        onDelete={onDelete}
         listeners={listeners}
         attributes={attributes}
       />
@@ -161,6 +165,7 @@ function CategoryStack({
   onCollapse,
   onUngroup,
   onDetail,
+  onDelete,
 }: {
   node: CategoryNode;
   selectedId: string | null;
@@ -171,6 +176,7 @@ function CategoryStack({
   onCollapse: () => void;
   onUngroup: (categoryId: string) => void;
   onDetail: (cat: CategoryWithSpend) => void;
+  onDelete: (cat: CategoryWithSpend) => void;
 }) {
   const childCount = node.children.length;
   const peekCount = Math.min(childCount, 2);
@@ -205,12 +211,24 @@ function CategoryStack({
           </div>
         ))}
 
-      {/* Parent card on top */}
+      {/* Parent card on top — show aggregated totals */}
       <div className="relative" style={{ zIndex: peekCount + 1 }}>
         <DraggableDroppableCard
-          category={node.category}
+          category={{
+            ...node.category,
+            total_spend:
+              node.category.total_spend +
+              node.children.reduce((s, c) => s + c.category.total_spend, 0),
+            transaction_count:
+              node.category.transaction_count +
+              node.children.reduce(
+                (s, c) => s + c.category.transaction_count,
+                0,
+              ),
+          }}
           selectedId={selectedId}
           onTap={() => (expanded ? onCollapse() : onExpand())}
+          onDelete={onDelete}
         />
         <div className="pointer-events-none absolute -right-1.5 -top-1.5 z-20 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground shadow-sm">
           +{childCount}
@@ -240,6 +258,7 @@ function CategoryStack({
                     category={child.category}
                     selectedId={selectedId}
                     onTap={onTap}
+                    onDelete={onDelete}
                   />
                 </div>
                 <Button
@@ -285,6 +304,8 @@ export function CategoryHierarchyBoard() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedStackId, setExpandedStackId] = useState<string | null>(null);
   const [detailCategory, setDetailCategory] =
+    useState<CategoryWithSpend | null>(null);
+  const [deleteCategory, setDeleteCategory] =
     useState<CategoryWithSpend | null>(null);
 
   const [pendingSource, setPendingSource] =
@@ -481,6 +502,7 @@ export function CategoryHierarchyBoard() {
                   onCollapse={() => setExpandedStackId(null)}
                   onUngroup={(id) => unsubordinate.mutate(id)}
                   onDetail={setDetailCategory}
+                  onDelete={setDeleteCategory}
                 />
               ))}
             </div>
@@ -502,6 +524,7 @@ export function CategoryHierarchyBoard() {
                     category={node.category}
                     selectedId={selectedId}
                     onTap={handleTap}
+                    onDelete={setDeleteCategory}
                   />
                   <Button
                     variant="secondary"
@@ -562,6 +585,13 @@ export function CategoryHierarchyBoard() {
           allCategories={plainCategories}
         />
       )}
+
+      <DeleteCategoryDialog
+        open={!!deleteCategory}
+        onClose={() => setDeleteCategory(null)}
+        category={deleteCategory}
+        allCategories={plainCategories}
+      />
     </div>
   );
 }

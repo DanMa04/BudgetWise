@@ -6,6 +6,7 @@ import {
   getMergeSuggestions,
   mergeCategories,
   createCategory,
+  deleteCategory,
   subordinateCategory,
   unsubordinateCategory,
   resetGroups,
@@ -91,6 +92,35 @@ export function useCreateCategory() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
       queryClient.invalidateQueries({ queryKey: ["categories-with-spend"] });
+    },
+  });
+}
+
+export function useDeleteCategory() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: {
+      id: string;
+      reassign_to?: string;
+      delete_transactions?: boolean;
+    }) => {
+      const token = await getToken();
+      if (!token) throw new Error("Not authenticated");
+      return deleteCategory(params.id, token, {
+        reassign_to: params.reassign_to,
+        delete_transactions: params.delete_transactions,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["categories-with-spend"] });
+      queryClient.invalidateQueries({ queryKey: ["merge-suggestions"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["budget-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["allocation-data"] });
     },
   });
 }

@@ -115,6 +115,7 @@ export function useCorrectTransaction() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["categories-with-spend"] });
       queryClient.invalidateQueries({ queryKey: ["rules"] });
     },
   });
@@ -138,6 +139,7 @@ export function useBulkCategorize() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["categories-with-spend"] });
     },
   });
 }
@@ -185,6 +187,7 @@ export function useConfirmImportCategories() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["categories-with-spend"] });
     },
   });
 }

@@ -7,6 +7,7 @@ import type {
   MonthlyComparison,
   IncomeVsExpense,
   TopMerchant,
+  CategoryVendor,
 } from "@/types/models";
 
 export async function fetchSpendingByCategory(
@@ -118,6 +119,26 @@ export async function fetchTopMerchants(
   });
   return apiFetch<TopMerchant[]>(
     `/api/v1/reports/top-merchants?${params}`,
+    {},
+    token
+  );
+}
+
+export async function fetchCategoryVendors(
+  token: string,
+  categoryId: string,
+  startDate: string,
+  endDate: string,
+  limit: number = 20
+): Promise<CategoryVendor[]> {
+  const params = new URLSearchParams({
+    category_id: categoryId,
+    start_date: startDate,
+    end_date: endDate,
+    limit: limit.toString(),
+  });
+  return apiFetch<CategoryVendor[]>(
+    `/api/v1/reports/category-vendors?${params}`,
     {},
     token
   );

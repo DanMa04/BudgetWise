@@ -9,6 +9,7 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.report import (
     BudgetVsActual,
+    CategoryVendor,
     IncomeVsExpense,
     MonthlyComparison,
     SpendingByCategory,
@@ -18,6 +19,7 @@ from app.schemas.report import (
 )
 from app.services.report_service import (
     get_budget_vs_actual,
+    get_category_vendors,
     get_income_vs_expense,
     get_monthly_comparison,
     get_spending_by_category,
@@ -125,3 +127,16 @@ async def top_merchants(
 ):
     start, end = _default_date_range(start_date, end_date)
     return await get_top_merchants(db, current_user.id, start, end, limit)
+
+
+@router.get("/category-vendors", response_model=list[CategoryVendor])
+async def category_vendors(
+    category_id: uuid.UUID = Query(...),
+    start_date: date | None = Query(None),
+    end_date: date | None = Query(None),
+    limit: int = Query(20),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    start, end = _default_date_range(start_date, end_date)
+    return await get_category_vendors(db, current_user.id, category_id, start, end, limit)

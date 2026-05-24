@@ -71,6 +71,13 @@ class SpendingByCategoryOverTime(BaseModel):
     total: float
 
 
+class CategoryVendor(BaseModel):
+    description: str
+    total_amount: float
+    transaction_count: int
+    percentage: float
+
+
 class ReportDateRange(BaseModel):
     start_date: date
     end_date: date

@@ -8,6 +8,7 @@ import {
   fetchMonthlyComparison,
   fetchIncomeVsExpense,
   fetchTopMerchants,
+  fetchCategoryVendors,
 } from "@/api/reports";
 
 export function useSpendingByCategory(startDate: string, endDate: string) {
@@ -115,5 +116,24 @@ export function useTopMerchants(
       if (!token) throw new Error("Not authenticated");
       return fetchTopMerchants(token, startDate, endDate, limit);
     },
+  });
+}
+
+export function useCategoryVendors(
+  categoryId: string | undefined,
+  startDate: string,
+  endDate: string,
+  limit: number = 20
+) {
+  const { getToken } = useAuth();
+
+  return useQuery({
+    queryKey: ["category-vendors", categoryId, startDate, endDate, limit],
+    queryFn: async () => {
+      const token = await getToken();
+      if (!token) throw new Error("Not authenticated");
+      return fetchCategoryVendors(token, categoryId!, startDate, endDate, limit);
+    },
+    enabled: !!categoryId,
   });
 }

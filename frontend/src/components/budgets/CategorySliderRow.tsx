@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Lock, Unlock } from "lucide-react";
 import { BudgetSlider } from "./BudgetSlider";
 import { formatCurrency } from "@/lib/formatters";
+import { cn } from "@/lib/utils";
 import type { AllocationItem } from "./useAllocationState";
 
 interface CategorySliderRowProps {
@@ -20,6 +21,8 @@ export function CategorySliderRow({
   onToggleLock,
 }: CategorySliderRowProps) {
   const [inputValue, setInputValue] = useState(item.amount.toFixed(0));
+  const [hovered, setHovered] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
 
   useEffect(() => {
     setInputValue(item.amount.toFixed(0));
@@ -41,7 +44,11 @@ export function CategorySliderRow({
   }
 
   return (
-    <div className="flex items-center gap-3 py-2">
+    <div
+      className="flex items-center gap-3 py-2"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       <div className="flex w-36 shrink-0 items-center gap-2">
         <div
           className="h-3 w-3 shrink-0 rounded-full"
@@ -71,11 +78,22 @@ export function CategorySliderRow({
             min={0}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            onBlur={handleInputBlur}
             onKeyDown={handleInputKeyDown}
             className="h-8 w-full rounded-md border bg-background pl-5 pr-2 text-right text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-ring"
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => { setInputFocused(false); handleInputBlur(); }}
           />
         </div>
+        {item.averageSpend != null && item.averageSpend > 0 && (
+          <p
+            className={cn(
+              "mt-0.5 text-right text-[10px] tabular-nums text-muted-foreground transition-opacity duration-150",
+              hovered || inputFocused ? "opacity-100" : "opacity-0",
+            )}
+          >
+            avg {formatCurrency(item.averageSpend)}
+          </p>
+        )}
       </div>
 
       <button
@@ -91,11 +109,6 @@ export function CategorySliderRow({
         )}
       </button>
 
-      {item.averageSpend != null && item.averageSpend > 0 && (
-        <span className="hidden w-20 shrink-0 text-right text-xs text-muted-foreground lg:block">
-          avg {formatCurrency(item.averageSpend)}
-        </span>
-      )}
     </div>
   );
 }

@@ -138,3 +138,35 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+.editable-grid-active .react-grid-item {
+  transition: box-shadow 0.2s;
+}
+
+.editable-grid-active .react-grid-item > * {
+  pointer-events: auto;
+}
+
+.grid-editing-outline .react-grid-item {
+  outline: 2px dashed oklch(0.708 0 0 / 40%);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+.grid-drag-handle {
+  cursor: grab;
+}
+
+.grid-drag-handle:active {
+  cursor: grabbing;
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: oklch(0.556 0 0 / 15%) !important;
+  border: 2px dashed oklch(0.556 0 0 / 40%) !important;
+  border-radius: var(--radius);
+}
+
+.react-grid-item > .react-resizable-handle::after {
+  border-color: oklch(0.556 0 0 / 50%) !important;
+}

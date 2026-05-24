@@ -10,7 +10,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from "recharts";
 import { formatCurrency } from "@/lib/formatters";
@@ -21,13 +20,26 @@ interface CategoryOverTimeChartProps {
   granularity: string;
   chartType: "area" | "bar" | "line";
   highlightedCategory?: string | null;
-  onCategoryHover?: (name: string | null) => void;
-  onCategoryClick?: (name: string) => void;
+  visibleCategories?: string[];
 }
 
-interface CategoryMeta {
+export interface CategoryMeta {
   name: string;
   color: string;
+}
+
+export function extractCategoryMeta(
+  data: SpendingByCategoryOverTime[],
+): CategoryMeta[] {
+  const metaMap = new Map<string, string>();
+  for (const period of data) {
+    for (const cat of period.categories) {
+      if (!metaMap.has(cat.category_name)) {
+        metaMap.set(cat.category_name, cat.category_color);
+      }
+    }
+  }
+  return Array.from(metaMap.entries()).map(([name, color]) => ({ name, color }));
 }
 
 function formatLabel(period: string, granularity: string): string {
@@ -96,8 +108,7 @@ export function CategoryOverTimeChart({
   granularity,
   chartType,
   highlightedCategory,
-  onCategoryHover,
-  onCategoryClick,
+  visibleCategories,
 }: CategoryOverTimeChartProps) {
   const { chartData, categoryMeta } = useMemo(() => {
     const metaMap = new Map<string, string>();
@@ -125,6 +136,15 @@ export function CategoryOverTimeChart({
 
     return { chartData: rows, categoryMeta: meta };
   }, [data]);
+
+  const renderMeta = useMemo(() => {
+    if (visibleCategories && visibleCategories.length > 0) {
+      return categoryMeta.filter((cat) =>
+        visibleCategories.includes(cat.name),
+      );
+    }
+    return categoryMeta;
+  }, [categoryMeta, visibleCategories]);
 
   if (data.length === 0) {
     return (
@@ -167,25 +187,6 @@ export function CategoryOverTimeChart({
     <CustomTooltip granularity={granularity} categoryMeta={categoryMeta} />
   );
 
-  const handleLegendMouseEnter = (e: { dataKey?: string }) => {
-    if (e.dataKey) onCategoryHover?.(e.dataKey);
-  };
-
-  const handleLegendMouseLeave = () => {
-    onCategoryHover?.(null);
-  };
-
-  const handleLegendClick = (e: { dataKey?: string }) => {
-    if (e.dataKey) onCategoryClick?.(e.dataKey);
-  };
-
-  const legendProps = {
-    onMouseEnter: handleLegendMouseEnter,
-    onMouseLeave: handleLegendMouseLeave,
-    onClick: handleLegendClick,
-    wrapperStyle: { cursor: "pointer", fontSize: 12 },
-  };
-
   return (
     <div className="h-96" key={chartType}>
       <ResponsiveContainer width="100%" height="100%">
@@ -195,8 +196,8 @@ export function CategoryOverTimeChart({
             <XAxis {...xAxisProps} />
             <YAxis {...yAxisProps} />
             <Tooltip content={tooltipContent} />
-            <Legend {...legendProps} />
-            {categoryMeta.map((cat) => (
+
+            {renderMeta.map((cat) => (
               <Area
                 key={cat.name}
                 type="monotone"
@@ -219,8 +220,8 @@ export function CategoryOverTimeChart({
             <XAxis {...xAxisProps} />
             <YAxis {...yAxisProps} />
             <Tooltip content={tooltipContent} />
-            <Legend {...legendProps} />
-            {categoryMeta.map((cat) => (
+
+            {renderMeta.map((cat) => (
               <Bar
                 key={cat.name}
                 dataKey={cat.name}
@@ -239,8 +240,8 @@ export function CategoryOverTimeChart({
             <XAxis {...xAxisProps} />
             <YAxis {...yAxisProps} />
             <Tooltip content={tooltipContent} />
-            <Legend {...legendProps} />
-            {categoryMeta.map((cat) => (
+
+            {renderMeta.map((cat) => (
               <Line
                 key={cat.name}
                 type="monotone"

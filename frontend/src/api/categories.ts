@@ -44,12 +44,17 @@ export async function updateCategory(
 
 export async function deleteCategory(
   id: string,
-  token: string
+  token: string,
+  options?: { reassign_to?: string; delete_transactions?: boolean },
 ): Promise<void> {
+  const params = new URLSearchParams();
+  if (options?.reassign_to) params.set("reassign_to", options.reassign_to);
+  if (options?.delete_transactions) params.set("delete_transactions", "true");
+  const qs = params.toString();
   await apiFetch<void>(
-    `/api/v1/categories/${id}`,
+    `/api/v1/categories/${id}${qs ? `?${qs}` : ""}`,
     { method: "DELETE" },
-    token
+    token,
   );
 }
 

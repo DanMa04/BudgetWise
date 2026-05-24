@@ -364,6 +364,13 @@ export interface TopMerchant {
   transaction_count: number;
 }
 
+export interface CategoryVendor {
+  description: string;
+  total_amount: number;
+  transaction_count: number;
+  percentage: number;
+}
+
 export interface CategorizationRule {
   id: string;
   user_id: string;

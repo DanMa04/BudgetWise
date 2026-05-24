@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   PieChart,
   Pie,
@@ -6,27 +7,31 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { formatCurrency } from "@/lib/formatters";
-import type { SpendingByCategory } from "@/types/models";
+import type { CategoryVendor } from "@/types/models";
 
-interface SpendingPieChartProps {
-  data: SpendingByCategory[];
-  onCategoryClick?: (category: SpendingByCategory) => void;
-  highlightedCategory?: string | null;
-  onCategoryHover?: (name: string | null) => void;
+interface VendorPieChartProps {
+  data: CategoryVendor[];
 }
+
+const VENDOR_COLORS = [
+  "#8b5cf6", "#f59e0b", "#10b981", "#ef4444", "#3b82f6",
+  "#ec4899", "#14b8a6", "#f97316", "#6366f1", "#84cc16",
+  "#06b6d4", "#e11d48", "#a855f7", "#22c55e", "#eab308",
+  "#0ea5e9", "#d946ef", "#64748b", "#fb923c", "#2dd4bf",
+];
 
 function CustomTooltip({
   active,
   payload,
 }: {
   active?: boolean;
-  payload?: Array<{ payload: SpendingByCategory }>;
+  payload?: Array<{ payload: CategoryVendor }>;
 }) {
   if (!active || !payload?.length) return null;
   const item = payload[0].payload;
   return (
     <div className="rounded-lg border bg-background px-3 py-2 shadow-md">
-      <p className="font-medium">{item.category_name}</p>
+      <p className="font-medium capitalize">{item.description}</p>
       <p className="text-sm text-muted-foreground">
         {formatCurrency(item.total_amount)} ({item.percentage.toFixed(1)}%)
       </p>
@@ -37,21 +42,19 @@ function CustomTooltip({
   );
 }
 
-export function SpendingPieChart({
-  data,
-  onCategoryClick,
-  highlightedCategory,
-  onCategoryHover,
-}: SpendingPieChartProps) {
+export function VendorPieChart({ data }: VendorPieChartProps) {
+  const total = useMemo(
+    () => data.reduce((sum, item) => sum + item.total_amount, 0),
+    [data],
+  );
+
   if (data.length === 0) {
     return (
       <div className="flex h-64 items-center justify-center text-muted-foreground">
-        No data for this period
+        No vendor data for this category
       </div>
     );
   }
-
-  const total = data.reduce((sum, item) => sum + item.total_amount, 0);
 
   return (
     <div className="h-[28rem]">
@@ -64,31 +67,16 @@ export function SpendingPieChart({
             innerRadius={70}
             outerRadius={130}
             dataKey="total_amount"
-            nameKey="category_name"
+            nameKey="description"
             paddingAngle={2}
             isAnimationActive={true}
             animationDuration={600}
             animationEasing="ease-in-out"
-            onMouseLeave={() => onCategoryHover?.(null)}
           >
             {data.map((entry, index) => (
               <Cell
-                key={entry.category_id ?? `uncategorized-${index}`}
-                fill={entry.category_color}
-                fillOpacity={
-                  highlightedCategory && highlightedCategory !== entry.category_name
-                    ? 0.25
-                    : 1
-                }
-                stroke={
-                  highlightedCategory === entry.category_name
-                    ? entry.category_color
-                    : "transparent"
-                }
-                strokeWidth={highlightedCategory === entry.category_name ? 3 : 0}
-                style={{ cursor: onCategoryClick ? "pointer" : "default" }}
-                onClick={() => onCategoryClick?.(entry)}
-                onMouseEnter={() => onCategoryHover?.(entry.category_name)}
+                key={entry.description}
+                fill={VENDOR_COLORS[index % VENDOR_COLORS.length]}
               />
             ))}
           </Pie>

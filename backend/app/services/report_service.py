@@ -1,15 +1,18 @@
 import uuid
 from datetime import date, timedelta
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.models.budget import Budget
 from app.models.category import Category
 from app.models.transaction import Transaction
+
 from app.schemas.report import (
     BudgetVsActual,
     CategoryPeriodAmount,
+    CategoryVendor,
     IncomeVsExpense,
     MonthlyComparison,
     SpendingByCategory,
@@ -25,8 +28,6 @@ async def get_spending_by_category(
     start_date: date,
     end_date: date,
 ) -> list[SpendingByCategory]:
-    from sqlalchemy.orm import aliased
-
     ParentCategory = aliased(Category)
 
     query = (
@@ -371,6 +372,24 @@ async def get_income_vs_expense(
     ]
 
 
+_FIXED_RECURRING_CATEGORIES = [
+    "bills & utilities",
+    "housing",
+    "mortgage",
+    "rent",
+    "car payment",
+    "auto loan",
+    "insurance",
+    "savings",
+    "investment",
+    "investments",
+    "transfer",
+    "transfers",
+    "loan payment",
+    "debt payment",
+]
+
+
 async def get_top_merchants(
     db: AsyncSession,
     user_id: uuid.UUID,
@@ -380,6 +399,8 @@ async def get_top_merchants(
 ) -> list[TopMerchant]:
     normalized = func.lower(func.trim(Transaction.description))
 
+    ParentCategory = aliased(Category)
+
     query = (
         select(
             normalized.label("description"),
@@ -387,6 +408,7 @@ async def get_top_merchants(
             func.count(Transaction.id).label("transaction_count"),
         )
         .outerjoin(Category, Transaction.category_id == Category.id)
+        .outerjoin(ParentCategory, Category.parent_id == ParentCategory.id)
         .where(
             Transaction.user_id == user_id,
             Transaction.date >= start_date,
@@ -395,6 +417,17 @@ async def get_top_merchants(
             case(
                 (Category.id.is_(None), True),
                 else_=Category.is_income.is_(False),
+            ),
+            # Exclude fixed/recurring categories by name or parent name
+            case(
+                (Category.id.is_(None), True),
+                else_=~func.lower(Category.name).in_(_FIXED_RECURRING_CATEGORIES),
+            ),
+            case(
+                (ParentCategory.id.is_(None), True),
+                else_=~func.lower(ParentCategory.name).in_(
+                    _FIXED_RECURRING_CATEGORIES
+                ),
             ),
         )
         .group_by(normalized)
@@ -410,6 +443,59 @@ async def get_top_merchants(
             description=row.description,
             total_amount=float(row.total_amount),
             transaction_count=row.transaction_count,
+        )
+        for row in rows
+    ]
+
+
+async def get_category_vendors(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    category_id: uuid.UUID,
+    start_date: date,
+    end_date: date,
+    limit: int = 20,
+) -> list[CategoryVendor]:
+    normalized = func.lower(func.trim(Transaction.description))
+
+    query = (
+        select(
+            normalized.label("description"),
+            func.sum(func.abs(Transaction.amount)).label("total_amount"),
+            func.count(Transaction.id).label("transaction_count"),
+        )
+        .outerjoin(Category, Transaction.category_id == Category.id)
+        .where(
+            Transaction.user_id == user_id,
+            Transaction.date >= start_date,
+            Transaction.date <= end_date,
+            Transaction.amount < 0,
+            or_(
+                Transaction.category_id == category_id,
+                Category.parent_id == category_id,
+            ),
+        )
+        .group_by(normalized)
+        .order_by(func.sum(func.abs(Transaction.amount)).desc())
+        .limit(limit)
+    )
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    if not rows:
+        return []
+
+    grand_total = sum(float(row.total_amount) for row in rows)
+
+    return [
+        CategoryVendor(
+            description=row.description,
+            total_amount=float(row.total_amount),
+            transaction_count=row.transaction_count,
+            percentage=round(float(row.total_amount) / grand_total * 100, 2)
+            if grand_total > 0
+            else 0,
         )
         for row in rows
     ]

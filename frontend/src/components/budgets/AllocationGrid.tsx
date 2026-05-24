@@ -332,9 +332,14 @@ function GroupAllocationBar({
 
               {/* Hover tooltip */}
               {isHovered && !drag && !isEditing && (
-                <div className="pointer-events-none absolute -top-9 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded border bg-popover px-2 py-1 text-xs font-medium shadow-md">
+                <div className="pointer-events-none absolute -top-10 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded border bg-popover px-2 py-1 text-xs font-medium shadow-md">
                   {seg.item.name}: {formatCurrency(seg.item.amount)}
                   {seg.item.isLocked ? " 🔒" : ""}
+                  {seg.item.averageSpend != null && seg.item.averageSpend > 0 && (
+                    <span className="ml-1.5 font-normal text-muted-foreground">
+                      avg {formatCurrency(seg.item.averageSpend)}
+                    </span>
+                  )}
                   <div className="text-[10px] text-muted-foreground">Click to edit</div>
                 </div>
               )}
@@ -342,25 +347,32 @@ function GroupAllocationBar({
               {/* Inline edit input */}
               {isEditing && (
                 <div
-                  className="absolute -top-10 left-1/2 z-40 -translate-x-1/2"
+                  className="absolute -top-12 left-1/2 z-40 -translate-x-1/2"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="flex items-center gap-1 rounded border bg-popover px-1.5 py-1 shadow-lg">
-                    <span className="text-xs font-medium truncate max-w-20">{seg.item.name}</span>
-                    <span className="text-xs text-muted-foreground">$</span>
-                    <input
-                      ref={childInputRef}
-                      type="number"
-                      min={0}
-                      value={childInput}
-                      onChange={(e) => setChildInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") commitChildEdit();
-                        if (e.key === "Escape") cancelChildEdit();
-                      }}
-                      onBlur={cancelChildEdit}
-                      className="h-6 w-16 rounded border bg-background px-1 text-right text-xs tabular-nums focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
+                  <div className="rounded border bg-popover px-1.5 py-1 shadow-lg">
+                    <div className="flex items-center gap-1">
+                      <span className="max-w-20 truncate text-xs font-medium">{seg.item.name}</span>
+                      <span className="text-xs text-muted-foreground">$</span>
+                      <input
+                        ref={childInputRef}
+                        type="number"
+                        min={0}
+                        value={childInput}
+                        onChange={(e) => setChildInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitChildEdit();
+                          if (e.key === "Escape") cancelChildEdit();
+                        }}
+                        onBlur={cancelChildEdit}
+                        className="h-6 w-16 rounded border bg-background px-1 text-right text-xs tabular-nums focus:outline-none focus:ring-1 focus:ring-ring"
+                      />
+                    </div>
+                    {seg.item.averageSpend != null && seg.item.averageSpend > 0 && (
+                      <div className="mt-0.5 text-right text-[10px] text-muted-foreground">
+                        avg {formatCurrency(seg.item.averageSpend)}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
