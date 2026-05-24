@@ -18,3 +18,18 @@ export async function createAccount(
     token
   );
 }
+
+export async function updateAccount(
+  accountId: string,
+  data: Partial<CreateAccountData>,
+  token: string
+): Promise<Account> {
+  return apiFetch<Account>(
+    `/api/v1/accounts/${accountId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    },
+    token
+  );
+}

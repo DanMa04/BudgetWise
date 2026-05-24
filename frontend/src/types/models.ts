@@ -9,6 +9,13 @@ export interface Account {
   is_active: boolean;
   plaid_item_id: string | null;
   plaid_account_id: string | null;
+  interest_rate: number | null;
+  original_balance: number | null;
+  minimum_payment: number | null;
+  loan_term_months: number | null;
+  loan_start_date: string | null;
+  return_rate_preset: string | null;
+  custom_return_rate: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -177,11 +184,17 @@ export interface GoalAllocation {
   goal_id: string;
   name: string;
   color: string | null;
+  goal_type: string | null;
   target_amount: number;
   current_amount: number;
   monthly_rate: number;
   planned_monthly_contribution: number | null;
   target_date: string | null;
+  linked_account_id: string | null;
+  linked_account_type: string | null;
+  linked_account_rate: number | null;
+  linked_account_balance: number | null;
+  linked_account_minimum_payment: number | null;
 }
 
 export interface AllocationData {
@@ -221,6 +234,13 @@ export interface CreateAccountData {
   institution_name?: string;
   currency_code?: string;
   current_balance?: number;
+  interest_rate?: number;
+  original_balance?: number;
+  minimum_payment?: number;
+  loan_term_months?: number;
+  loan_start_date?: string;
+  return_rate_preset?: string;
+  custom_return_rate?: number;
 }
 
 export interface CreateCategoryData {
@@ -438,6 +458,7 @@ export interface CreateGoalData {
   color?: string;
   target_date?: string;
   linked_account_id?: string;
+  planned_monthly_contribution?: number;
 }
 
 export interface CreateContributionData {
@@ -536,4 +557,73 @@ export interface UpdateTransferRuleData {
   counterparty_pattern?: string | null;
   is_active?: boolean;
   priority?: number;
+}
+
+// Projection types
+
+export interface AmortizationRow {
+  month: number;
+  payment: number;
+  principal: number;
+  interest: number;
+  remaining_balance: number;
+  cumulative_interest: number;
+}
+
+export interface DebtProjectionResponse {
+  account_id: string;
+  account_name: string;
+  balance: number;
+  rate: number;
+  min_payment: number;
+  extra_payment: number;
+  schedule_min_only: AmortizationRow[];
+  schedule_with_extra: AmortizationRow[];
+  months_saved: number;
+  interest_saved: number;
+  payoff_date_min: string | null;
+  payoff_date_extra: string | null;
+}
+
+export interface DebtTimeline {
+  month: number;
+  debts: Record<string, number>;
+  total_balance: number;
+  total_interest_paid: number;
+}
+
+export interface StrategyResult {
+  strategy: string;
+  timeline: DebtTimeline[];
+  total_months: number;
+  total_interest: number;
+  payoff_order: string[];
+}
+
+export interface MultiDebtStrategyResponse {
+  avalanche: StrategyResult;
+  snowball: StrategyResult;
+  months_difference: number;
+  interest_difference: number;
+}
+
+export interface InvestmentRow {
+  month: number;
+  contributions_total: number;
+  growth_total: number;
+  balance: number;
+}
+
+export interface InvestmentProjectionResponse {
+  account_id: string;
+  account_name: string;
+  current_balance: number;
+  monthly_contribution: number;
+  annual_return_rate: number;
+  return_rate_label: string;
+  projection: InvestmentRow[];
+  balance_5y: number;
+  balance_10y: number;
+  balance_20y: number;
+  balance_30y: number;
 }

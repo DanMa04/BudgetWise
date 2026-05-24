@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -24,6 +24,18 @@ class Account(Base):
         ForeignKey("plaid_items.id"), nullable=True
     )
     plaid_account_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    # Debt fields (loan, credit)
+    interest_rate: Mapped[Decimal | None] = mapped_column(Numeric(6, 3), nullable=True)
+    original_balance: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    minimum_payment: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    loan_term_months: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    loan_start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    # Investment fields
+    return_rate_preset: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    custom_return_rate: Mapped[Decimal | None] = mapped_column(Numeric(6, 3), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

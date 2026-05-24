@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Lock, Unlock } from "lucide-react";
 import { Slider } from "@base-ui/react/slider";
 import { formatCurrency } from "@/lib/formatters";
+import { computeDebtPayoff, computeInvestmentGrowth } from "@/lib/projections";
 import type { AllocationItem } from "./useAllocationState";
 
 interface GoalVerticalBarProps {
@@ -12,17 +13,64 @@ interface GoalVerticalBarProps {
   onToggleLock: (id: string) => void;
 }
 
-function estimateCompletion(item: AllocationItem): string | null {
-  if (!item.targetAmount || item.amount <= 0) return null;
-  const remaining = Math.max(0, item.targetAmount - (item.currentAmount || 0));
-  if (remaining <= 0) return "Complete!";
-  const months = Math.ceil(remaining / item.amount);
+function formatMonths(months: number): string {
   if (months <= 1) return "~1 month";
   if (months < 12) return `~${months} months`;
   const years = Math.floor(months / 12);
-  const remMonths = months % 12;
-  if (remMonths === 0) return `~${years}y`;
-  return `~${years}y ${remMonths}m`;
+  const rem = months % 12;
+  if (rem === 0) return `~${years}y`;
+  return `~${years}y ${rem}m`;
+}
+
+function estimateCompletion(item: AllocationItem): { time: string; detail?: string } | null {
+  if (item.amount <= 0) return null;
+
+  if (
+    item.linkedAccountType &&
+    ["loan", "credit"].includes(item.linkedAccountType) &&
+    item.linkedAccountBalance &&
+    item.linkedAccountRate
+  ) {
+    const minPay = item.minimumPayment || item.amount;
+    const extra = Math.max(0, item.amount - minPay);
+    const result = computeDebtPayoff(
+      item.linkedAccountBalance,
+      item.linkedAccountRate,
+      minPay,
+      extra
+    );
+    if (result.months === 0) return { time: "Paid off!" };
+    return {
+      time: formatMonths(result.months),
+      detail: `${formatCurrency(result.totalInterest)} interest`,
+    };
+  }
+
+  if (
+    item.linkedAccountType === "investment" &&
+    item.linkedAccountRate &&
+    item.targetAmount
+  ) {
+    const balance = item.linkedAccountBalance || item.currentAmount || 0;
+    const target = item.targetAmount;
+    if (balance >= target) return { time: "Reached!" };
+    for (let m = 1; m <= 360; m++) {
+      const { finalBalance } = computeInvestmentGrowth(
+        balance,
+        item.amount,
+        item.linkedAccountRate,
+        m
+      );
+      if (finalBalance >= target) return { time: formatMonths(m) };
+    }
+    return { time: "30y+" };
+  }
+
+  if (!item.targetAmount) return null;
+  const remaining = Math.max(0, item.targetAmount - (item.currentAmount || 0));
+  if (remaining <= 0) return { time: "Complete!" };
+  const months = Math.ceil(remaining / item.amount);
+  return { time: formatMonths(months) };
 }
 
 export function GoalVerticalBar({
@@ -128,9 +176,16 @@ export function GoalVerticalBar({
       </button>
 
       {estimate && (
-        <span className="text-center text-[10px] font-medium text-muted-foreground">
-          {estimate}
-        </span>
+        <div className="text-center">
+          <span className="text-[10px] font-medium text-muted-foreground">
+            {estimate.time}
+          </span>
+          {estimate.detail && (
+            <div className="text-[9px] text-muted-foreground/70">
+              {estimate.detail}
+            </div>
+          )}
+        </div>
       )}
 
       <div className="text-center text-[10px] text-muted-foreground">

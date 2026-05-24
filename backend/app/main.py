@@ -26,6 +26,7 @@ from app.routers import (
     import_,
     notifications,
     plaid,
+    projections,
     reports,
     snapshots,
     teller,
@@ -84,6 +85,7 @@ app.include_router(teller.router, prefix="/api/v1")
 app.include_router(transfer_rules.router, prefix="/api/v1")
 app.include_router(snapshots.router, prefix="/api/v1")
 app.include_router(ai_categorization.router, prefix="/api/v1")
+app.include_router(projections.router, prefix="/api/v1")
 app.include_router(extension.router, prefix="/api/v1")
 
 

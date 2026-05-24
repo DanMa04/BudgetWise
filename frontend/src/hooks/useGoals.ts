@@ -90,6 +90,7 @@ export function useUpdateGoal() {
       queryClient.invalidateQueries({ queryKey: ["goals"] });
       queryClient.invalidateQueries({ queryKey: ["goal-summary"] });
       queryClient.invalidateQueries({ queryKey: ["allocation-data"] });
+      queryClient.invalidateQueries({ queryKey: ["multi-debt-strategy"] });
     },
   });
 }

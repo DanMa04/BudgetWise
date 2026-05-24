@@ -5,11 +5,13 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.account import Account
 from app.models.budget import Budget
 from app.models.category import Category
 from app.models.goal import Goal
 from app.models.transaction import Transaction
 from app.models.user import User
+from app.services.projection_service import resolve_return_rate
 from app.schemas.budget import (
     AllocationData,
     BudgetCreate,
@@ -260,11 +262,19 @@ async def get_allocation_data(
             )
         )
 
-    # Active goals
+    # Active goals with linked accounts
     goals_result = await db.execute(
         select(Goal).where(Goal.user_id == user_id, Goal.is_active.is_(True))
     )
     goals = list(goals_result.scalars().all())
+
+    linked_account_ids = [g.linked_account_id for g in goals if g.linked_account_id]
+    accounts_map: dict[uuid.UUID, Account] = {}
+    if linked_account_ids:
+        acct_result = await db.execute(
+            select(Account).where(Account.id.in_(linked_account_ids))
+        )
+        accounts_map = {a.id: a for a in acct_result.scalars().all()}
 
     goal_allocations = []
     for goal in goals:
@@ -279,11 +289,21 @@ async def get_allocation_data(
         else:
             monthly_rate = 0.0
 
+        linked_acct = accounts_map.get(goal.linked_account_id) if goal.linked_account_id else None
+        acct_rate: float | None = None
+        if linked_acct:
+            if linked_acct.account_type in ("loan", "credit"):
+                acct_rate = float(linked_acct.interest_rate) if linked_acct.interest_rate else None
+            elif linked_acct.account_type == "investment":
+                resolved = resolve_return_rate(linked_acct.return_rate_preset, linked_acct.custom_return_rate)
+                acct_rate = resolved if resolved > 0 else None
+
         goal_allocations.append(
             GoalAllocation(
                 goal_id=goal.id,
                 name=goal.name,
                 color=goal.color,
+                goal_type=goal.goal_type,
                 target_amount=float(goal.target_amount),
                 current_amount=float(goal.current_amount),
                 monthly_rate=monthly_rate,
@@ -293,6 +313,15 @@ async def get_allocation_data(
                     else None
                 ),
                 target_date=goal.target_date,
+                linked_account_id=goal.linked_account_id,
+                linked_account_type=linked_acct.account_type if linked_acct else None,
+                linked_account_rate=acct_rate,
+                linked_account_balance=float(linked_acct.current_balance) if linked_acct else None,
+                linked_account_minimum_payment=(
+                    float(linked_acct.minimum_payment)
+                    if linked_acct and linked_acct.minimum_payment
+                    else None
+                ),
             )
         )
 

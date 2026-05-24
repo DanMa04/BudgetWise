@@ -6,6 +6,7 @@ from dateutil.relativedelta import relativedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.account import Account
 from app.models.goal import Goal
 from app.models.goal_contribution import GoalContribution
 from app.schemas.goal import ContributionCreate, GoalCreate, GoalUpdate
@@ -110,11 +111,25 @@ async def get_goal_with_progress(
     if not goal:
         return None
 
-    percentage = float(
-        min(Decimal("100"), (goal.current_amount / goal.target_amount) * 100)
-    ) if goal.target_amount > 0 else 0.0
+    # For debt_payoff goals linked to an account, derive progress from account balance
+    linked_account = None
+    if goal.linked_account_id and goal.goal_type == "debt_payoff":
+        acct_result = await db.execute(
+            select(Account).where(Account.id == goal.linked_account_id)
+        )
+        linked_account = acct_result.scalar_one_or_none()
 
-    remaining_amount = max(Decimal("0"), goal.target_amount - goal.current_amount)
+    if linked_account and linked_account.original_balance and linked_account.original_balance > 0:
+        original = Decimal(str(linked_account.original_balance))
+        current_bal = Decimal(str(linked_account.current_balance or 0))
+        paid_off = original - current_bal
+        percentage = float(min(Decimal("100"), (paid_off / original) * 100))
+        remaining_amount = max(Decimal("0"), current_bal)
+    else:
+        percentage = float(
+            min(Decimal("100"), (goal.current_amount / goal.target_amount) * 100)
+        ) if goal.target_amount > 0 else 0.0
+        remaining_amount = max(Decimal("0"), goal.target_amount - goal.current_amount)
 
     today = date.today()
     months_elapsed = max(

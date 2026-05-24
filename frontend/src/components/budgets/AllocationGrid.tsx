@@ -55,6 +55,9 @@ function GroupAllocationBar({
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [totalInput, setTotalInput] = useState(group.totalAmount.toFixed(0));
+  const [editingChildId, setEditingChildId] = useState<string | null>(null);
+  const [childInput, setChildInput] = useState("");
+  const childInputRef = useRef<HTMLInputElement>(null);
 
   const children = group.children;
   const total = group.totalAmount;
@@ -212,6 +215,28 @@ function GroupAllocationBar({
     if (e.key === "Enter") (e.target as HTMLInputElement).blur();
   }
 
+  function handleChildClick(child: AllocationItem) {
+    if (drag) return;
+    setEditingChildId(child.id);
+    setChildInput(child.amount.toFixed(0));
+    setTimeout(() => childInputRef.current?.focus(), 0);
+  }
+
+  function commitChildEdit() {
+    if (!editingChildId) return;
+    const parsed = parseFloat(childInput);
+    if (!isNaN(parsed) && parsed >= 0) {
+      onManualEntry(editingChildId, Math.round(parsed));
+    }
+    setEditingChildId(null);
+    setChildInput("");
+  }
+
+  function cancelChildEdit() {
+    setEditingChildId(null);
+    setChildInput("");
+  }
+
   return (
     <div className="space-y-1">
       {/* Header: parent name + group lock + avg + editable total */}
@@ -267,21 +292,23 @@ function GroupAllocationBar({
           const isHovered = hoveredIndex === i;
           const isDimmed =
             hoveredIndex !== null && hoveredIndex !== i && !drag;
+          const isEditing = editingChildId === seg.item.id;
 
           return (
             <div
               key={seg.item.id}
-              className="relative h-full transition-all duration-100 first:rounded-l-md last:rounded-r-md"
+              className="relative h-full transition-all duration-100 first:rounded-l-md last:rounded-r-md cursor-pointer"
               style={{
                 width: `${seg.pct}%`,
                 minWidth: seg.item.amount > 0 ? 4 : 0,
                 backgroundColor: seg.item.color || "#6b7280",
                 opacity: isDimmed ? 0.35 : 1,
-                filter: isHovered ? "brightness(1.15)" : undefined,
+                filter: isHovered || isEditing ? "brightness(1.15)" : undefined,
               }}
               onMouseEnter={() => {
                 if (!drag) setHoveredIndex(i);
               }}
+              onClick={() => handleChildClick(seg.item)}
             >
               {/* Locked overlay pattern */}
               {seg.item.isLocked && (
@@ -295,7 +322,7 @@ function GroupAllocationBar({
               )}
 
               {/* Inline label when segment is wide enough */}
-              {seg.pct > 18 && (
+              {seg.pct > 18 && !isEditing && (
                 <div className="absolute inset-0 flex items-center justify-center overflow-hidden px-1">
                   <span className="truncate text-[11px] font-medium text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
                     {seg.item.name}
@@ -304,10 +331,37 @@ function GroupAllocationBar({
               )}
 
               {/* Hover tooltip */}
-              {isHovered && !drag && (
+              {isHovered && !drag && !isEditing && (
                 <div className="pointer-events-none absolute -top-9 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded border bg-popover px-2 py-1 text-xs font-medium shadow-md">
                   {seg.item.name}: {formatCurrency(seg.item.amount)}
                   {seg.item.isLocked ? " 🔒" : ""}
+                  <div className="text-[10px] text-muted-foreground">Click to edit</div>
+                </div>
+              )}
+
+              {/* Inline edit input */}
+              {isEditing && (
+                <div
+                  className="absolute -top-10 left-1/2 z-40 -translate-x-1/2"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center gap-1 rounded border bg-popover px-1.5 py-1 shadow-lg">
+                    <span className="text-xs font-medium truncate max-w-20">{seg.item.name}</span>
+                    <span className="text-xs text-muted-foreground">$</span>
+                    <input
+                      ref={childInputRef}
+                      type="number"
+                      min={0}
+                      value={childInput}
+                      onChange={(e) => setChildInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitChildEdit();
+                        if (e.key === "Escape") cancelChildEdit();
+                      }}
+                      onBlur={cancelChildEdit}
+                      className="h-6 w-16 rounded border bg-background px-1 text-right text-xs tabular-nums focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
                 </div>
               )}
             </div>

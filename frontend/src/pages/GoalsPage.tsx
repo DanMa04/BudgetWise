@@ -4,6 +4,7 @@ import { GoalSummaryCards } from "@/components/goals/GoalSummaryCards";
 import { GoalCard } from "@/components/goals/GoalCard";
 import { GoalForm } from "@/components/goals/GoalForm";
 import { GoalDetail } from "@/components/goals/GoalDetail";
+import { DebtStrategyComparison } from "@/components/goals/DebtStrategyComparison";
 import { useGoals } from "@/hooks/useGoals";
 import type { GoalWithProgress } from "@/types/models";
 
@@ -18,7 +19,7 @@ export function GoalsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Goals</h1>
           <p className="text-muted-foreground">
-            Track your savings and financial goals.
+            Track your savings, debt payoff, and investment goals.
           </p>
         </div>
         <Button onClick={() => setShowForm(true)}>Create Goal</Button>
@@ -55,6 +56,8 @@ export function GoalsPage() {
           </Button>
         </div>
       )}
+
+      <DebtStrategyComparison />
 
       <GoalForm open={showForm} onClose={() => setShowForm(false)} />
 

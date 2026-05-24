@@ -46,6 +46,7 @@ class GoalUpdate(BaseModel):
     color: str | None = None
     target_date: date | None = None
     linked_account_id: uuid.UUID | None = None
+    planned_monthly_contribution: Decimal | None = None
     is_active: bool | None = None
 
 

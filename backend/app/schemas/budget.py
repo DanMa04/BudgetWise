@@ -73,11 +73,17 @@ class GoalAllocation(BaseModel):
     goal_id: uuid.UUID
     name: str
     color: str | None
+    goal_type: str | None = None
     target_amount: float
     current_amount: float
     monthly_rate: float
     planned_monthly_contribution: float | None
     target_date: date | None
+    linked_account_id: uuid.UUID | None = None
+    linked_account_type: str | None = None
+    linked_account_rate: float | None = None
+    linked_account_balance: float | None = None
+    linked_account_minimum_payment: float | None = None
 
 
 class AllocationData(BaseModel):

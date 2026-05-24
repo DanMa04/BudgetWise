@@ -1,10 +1,12 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/formatters";
+import { RETURN_RATE_PRESETS } from "@/lib/projections";
 import type { Account } from "@/types/models";
 
 interface AccountCardProps {
   account: Account;
+  onClick?: () => void;
 }
 
 function formatLastSynced(dateStr: string): string {
@@ -23,12 +25,17 @@ function formatLastSynced(dateStr: string): string {
   return `${diffDays}d ago`;
 }
 
-export function AccountCard({ account }: AccountCardProps) {
+export function AccountCard({ account, onClick }: AccountCardProps) {
   const isLinked = !!account.plaid_item_id;
+  const isDebt = account.account_type === "loan" || account.account_type === "credit";
+  const isInvestment = account.account_type === "investment";
   const isNegative = account.current_balance < 0;
 
   return (
-    <Card className="py-4">
+    <Card
+      className={`py-4 ${onClick ? "cursor-pointer transition-colors hover:bg-muted/50" : ""}`}
+      onClick={onClick}
+    >
       <CardContent className="space-y-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -46,11 +53,30 @@ export function AccountCard({ account }: AccountCardProps) {
 
         <div
           className={`text-2xl font-bold ${
-            isNegative ? "text-red-500" : "text-green-600"
+            isDebt || isNegative ? "text-red-500" : "text-green-600"
           }`}
         >
-          {formatCurrency(account.current_balance)}
+          {formatCurrency(isDebt ? Math.abs(account.current_balance) : account.current_balance)}
         </div>
+
+        {isDebt && account.interest_rate != null && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>{account.interest_rate}% APR</span>
+            {account.minimum_payment != null && (
+              <>
+                <span>·</span>
+                <span>{formatCurrency(account.minimum_payment)}/mo min</span>
+              </>
+            )}
+          </div>
+        )}
+
+        {isInvestment && account.return_rate_preset && (
+          <div className="text-xs text-muted-foreground">
+            {RETURN_RATE_PRESETS[account.return_rate_preset]?.label ??
+              `${account.custom_return_rate ?? 0}% return`}
+          </div>
+        )}
 
         {isLinked && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">

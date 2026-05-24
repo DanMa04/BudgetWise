@@ -35,6 +35,10 @@ export interface AllocationItem {
   currentAmount?: number;
   monthlyRate?: number;
   targetDate?: string | null;
+  linkedAccountType?: string;
+  linkedAccountRate?: number;
+  linkedAccountBalance?: number;
+  minimumPayment?: number;
 }
 
 interface AllocationState {
@@ -217,6 +221,10 @@ function reducer(state: AllocationState, action: Action): AllocationState {
         currentAmount: goal.current_amount,
         monthlyRate: goal.monthly_rate,
         targetDate: goal.target_date,
+        linkedAccountType: goal.linked_account_type ?? undefined,
+        linkedAccountRate: goal.linked_account_rate ?? undefined,
+        linkedAccountBalance: goal.linked_account_balance ?? undefined,
+        minimumPayment: goal.linked_account_minimum_payment ?? undefined,
       }));
 
       const allItems = [...categoryItems, ...goalItems];

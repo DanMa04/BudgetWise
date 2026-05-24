@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel
@@ -11,6 +11,13 @@ class AccountCreate(BaseModel):
     institution_name: str | None = None
     currency_code: str = "USD"
     current_balance: Decimal = Decimal("0")
+    interest_rate: Decimal | None = None
+    original_balance: Decimal | None = None
+    minimum_payment: Decimal | None = None
+    loan_term_months: int | None = None
+    loan_start_date: date | None = None
+    return_rate_preset: str | None = None
+    custom_return_rate: Decimal | None = None
 
 
 class AccountRead(BaseModel):
@@ -24,6 +31,13 @@ class AccountRead(BaseModel):
     is_active: bool
     plaid_item_id: uuid.UUID | None = None
     plaid_account_id: str | None = None
+    interest_rate: Decimal | None = None
+    original_balance: Decimal | None = None
+    minimum_payment: Decimal | None = None
+    loan_term_months: int | None = None
+    loan_start_date: date | None = None
+    return_rate_preset: str | None = None
+    custom_return_rate: Decimal | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -36,3 +50,10 @@ class AccountUpdate(BaseModel):
     institution_name: str | None = None
     current_balance: Decimal | None = None
     is_active: bool | None = None
+    interest_rate: Decimal | None = None
+    original_balance: Decimal | None = None
+    minimum_payment: Decimal | None = None
+    loan_term_months: int | None = None
+    loan_start_date: date | None = None
+    return_rate_preset: str | None = None
+    custom_return_rate: Decimal | None = None

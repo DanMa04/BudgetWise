@@ -1,5 +1,8 @@
+import { useState } from "react";
 import { useAccounts } from "@/hooks/useAccounts";
 import { AccountCard } from "@/components/accounts/AccountCard";
+import { DebtAccountDetail } from "@/components/accounts/DebtAccountDetail";
+import { InvestmentAccountDetail } from "@/components/accounts/InvestmentAccountDetail";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Account } from "@/types/models";
 
@@ -25,15 +28,28 @@ function AccountListSkeleton() {
   );
 }
 
-function groupByInstitution(accounts: Account[]): Record<string, Account[]> {
-  const groups: Record<string, Account[]> = {};
+const TYPE_GROUPS: Array<{ label: string; types: string[] }> = [
+  { label: "Cash Accounts", types: ["checking", "savings"] },
+  { label: "Debt Accounts", types: ["loan", "credit"] },
+  { label: "Investment Accounts", types: ["investment"] },
+  { label: "Other", types: ["other"] },
+];
 
-  for (const account of accounts) {
-    const key = account.institution_name ?? "Manual Accounts";
-    if (!groups[key]) {
-      groups[key] = [];
+function groupByType(accounts: Account[]): Array<{ label: string; accounts: Account[] }> {
+  const groups: Array<{ label: string; accounts: Account[] }> = [];
+  const placed = new Set<string>();
+
+  for (const group of TYPE_GROUPS) {
+    const matching = accounts.filter((a) => group.types.includes(a.account_type));
+    if (matching.length > 0) {
+      groups.push({ label: group.label, accounts: matching });
+      matching.forEach((a) => placed.add(a.id));
     }
-    groups[key].push(account);
+  }
+
+  const remaining = accounts.filter((a) => !placed.has(a.id));
+  if (remaining.length > 0) {
+    groups.push({ label: "Other", accounts: remaining });
   }
 
   return groups;
@@ -41,6 +57,7 @@ function groupByInstitution(accounts: Account[]): Record<string, Account[]> {
 
 export function AccountList() {
   const { data: accounts, isLoading } = useAccounts();
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
 
   if (isLoading) {
     return <AccountListSkeleton />;
@@ -56,20 +73,50 @@ export function AccountList() {
     );
   }
 
-  const groups = groupByInstitution(accounts);
+  const groups = groupByType(accounts);
+  const isDebtAccount = selectedAccount?.account_type === "loan" || selectedAccount?.account_type === "credit";
+  const isInvestmentAccount = selectedAccount?.account_type === "investment";
 
   return (
-    <div className="space-y-6">
-      {Object.entries(groups).map(([institution, groupAccounts]) => (
-        <div key={institution} className="space-y-3">
-          <h2 className="text-lg font-semibold">{institution}</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {groupAccounts.map((account) => (
-              <AccountCard key={account.id} account={account} />
-            ))}
+    <>
+      <div className="space-y-6">
+        {groups.map((group) => (
+          <div key={group.label} className="space-y-3">
+            <h2 className="text-lg font-semibold">{group.label}</h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {group.accounts.map((account) => (
+                <AccountCard
+                  key={account.id}
+                  account={account}
+                  onClick={
+                    account.account_type === "loan" ||
+                    account.account_type === "credit" ||
+                    account.account_type === "investment"
+                      ? () => setSelectedAccount(account)
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+
+      {selectedAccount && isDebtAccount && (
+        <DebtAccountDetail
+          account={selectedAccount}
+          open
+          onClose={() => setSelectedAccount(null)}
+        />
+      )}
+
+      {selectedAccount && isInvestmentAccount && (
+        <InvestmentAccountDetail
+          account={selectedAccount}
+          open
+          onClose={() => setSelectedAccount(null)}
+        />
+      )}
+    </>
   );
 }

@@ -78,6 +78,7 @@ async def get_goal_endpoint(
         color=goal.color,
         target_date=goal.target_date,
         linked_account_id=goal.linked_account_id,
+        planned_monthly_contribution=goal.planned_monthly_contribution,
         is_active=goal.is_active,
         created_at=goal.created_at,
         updated_at=goal.updated_at,
