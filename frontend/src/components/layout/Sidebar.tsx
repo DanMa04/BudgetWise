@@ -46,7 +46,7 @@ export function Sidebar() {
         )}
       >
         {!isCollapsed && (
-          <h1 className="text-xl font-bold tracking-tight">BudgetWise</h1>
+          <h1 className="text-xl font-bold tracking-tight">Kallio</h1>
         )}
       </div>
 

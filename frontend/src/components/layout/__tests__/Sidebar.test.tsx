@@ -5,7 +5,7 @@ import { Sidebar } from "../Sidebar";
 describe("Sidebar", () => {
   it("renders the app name", () => {
     renderWithProviders(<Sidebar />);
-    expect(screen.getByText("BudgetWise")).toBeInTheDocument();
+    expect(screen.getByText("Kallio")).toBeInTheDocument();
   });
 
   it("renders all navigation items", () => {
