@@ -4,8 +4,9 @@ import { Header } from "./Header";
 import { MobileNav } from "./MobileNav";
 import { Sidebar } from "./Sidebar";
 import { Spinner } from "@/components/ui/spinner";
+import { SidebarProvider } from "@/context/SidebarContext";
 
-export function AppShell() {
+function AppShellInner() {
   return (
     <div className="flex h-screen bg-background">
       <a
@@ -29,5 +30,13 @@ export function AppShell() {
       </div>
       <MobileNav />
     </div>
+  );
+}
+
+export function AppShell() {
+  return (
+    <SidebarProvider>
+      <AppShellInner />
+    </SidebarProvider>
   );
 }

@@ -53,6 +53,7 @@ export function CategorySliderRow({
     >
       <div className="flex w-36 shrink-0 items-center gap-2">
         <div
+          data-color-accent=""
           className="h-3 w-3 shrink-0 rounded-full"
           style={{ backgroundColor: item.color || "#6b7280" }}
         />

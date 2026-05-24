@@ -48,6 +48,7 @@ export const CategoryCard = forwardRef<HTMLDivElement, CategoryCardProps>(
         )}
       >
         <div
+          data-color-accent=""
           className="absolute left-0 top-0 h-full w-1 rounded-l-lg"
           style={{ backgroundColor: color }}
         />

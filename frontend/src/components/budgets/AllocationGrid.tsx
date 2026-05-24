@@ -255,6 +255,7 @@ function GroupAllocationBar({
       {/* Header: parent name + group lock + avg + editable total */}
       <div className="flex items-center gap-2">
         <div
+          data-color-accent=""
           className="h-2.5 w-2.5 shrink-0 rounded-full"
           style={{ backgroundColor: group.parent.color || "#6b7280" }}
         />

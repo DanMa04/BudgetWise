@@ -2,6 +2,7 @@ import { ClerkProvider } from "@clerk/clerk-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "react-router-dom";
 import { AuthGuard } from "@/components/auth/AuthGuard";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { router } from "@/router";
 
 const queryClient = new QueryClient({
@@ -27,12 +28,14 @@ export default function App() {
   }
 
   return (
-    <ClerkProvider publishableKey={clerkPubKey}>
-      <QueryClientProvider client={queryClient}>
-        <AuthGuard>
-          <RouterProvider router={router} />
-        </AuthGuard>
-      </QueryClientProvider>
-    </ClerkProvider>
+    <ThemeProvider>
+      <ClerkProvider publishableKey={clerkPubKey}>
+        <QueryClientProvider client={queryClient}>
+          <AuthGuard>
+            <RouterProvider router={router} />
+          </AuthGuard>
+        </QueryClientProvider>
+      </ClerkProvider>
+    </ThemeProvider>
   );
 }
