@@ -6,6 +6,9 @@ import type { CartCheckResponse, ExtensionMessage } from "../shared/types";
 let isProcessing = false;
 let observer: MutationObserver | null = null;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+let lastCheckedTotal: number | null = null;
+
+const OUR_IDS = new Set(["kallio-overlay-host", "kallio-budget-banner"]);
 
 async function checkAndShowOverlay(): Promise<void> {
   if (isProcessing) return;
@@ -13,17 +16,14 @@ async function checkAndShowOverlay(): Promise<void> {
 
   try {
     const detection = detectCheckoutPage(window.location.href);
-    if (!detection.isCheckout) {
-      isProcessing = false;
-      return;
-    }
+    if (!detection.isCheckout) return;
 
     const parseResult = parseCartTotal(document);
+    if (parseResult.total === null || parseResult.total <= 0) return;
 
-    if (parseResult.total === null || parseResult.total <= 0) {
-      isProcessing = false;
-      return;
-    }
+    // Only re-query the backend (and replace the overlay) if the total changed
+    if (parseResult.total === lastCheckedTotal) return;
+    lastCheckedTotal = parseResult.total;
 
     const response = await sendMessage<CartCheckResponse>({
       type: "CHECK_CART",
@@ -59,27 +59,26 @@ function sendMessage<T>(message: ExtensionMessage): Promise<T> {
 
 function debouncedCheck(): void {
   if (debounceTimer) clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => checkAndShowOverlay(), 1000);
+  debounceTimer = setTimeout(() => checkAndShowOverlay(), 1500);
 }
 
 function setupMutationObserver(): void {
   if (observer) observer.disconnect();
 
-  const OUR_IDS = new Set(["kallio-overlay-host", "kallio-budget-banner"]);
-
   observer = new MutationObserver((mutations) => {
     const hasRelevantChanges = mutations.some((m) => {
       if (m.type === "childList") {
-        // Ignore mutations caused by our own elements being added/removed
-        for (const node of m.addedNodes) {
+        // Ignore our own overlay/banner being added or removed
+        for (const node of [...m.addedNodes, ...m.removedNodes]) {
           if (node instanceof Element && OUR_IDS.has(node.id)) return false;
         }
         return m.addedNodes.length > 0;
       }
-      return m.type === "characterData" || m.type === "attributes";
+      return m.type === "characterData";
     });
+
     if (hasRelevantChanges) {
-      removeOverlay();
+      // Don't touch the overlay — just re-check if the total changed
       debouncedCheck();
     }
   });
