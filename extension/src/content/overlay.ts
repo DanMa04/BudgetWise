@@ -1,7 +1,15 @@
 import type { CartCheckResponse } from "../shared/types";
 
-const OVERLAY_HOST_ID = "budgetwise-overlay-host";
+const OVERLAY_HOST_ID = "kallio-overlay-host";
+const BANNER_HOST_ID = "kallio-budget-banner";
 const AUTO_DISMISS_DELAY = 5000;
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(amount);
+}
 
 function getWarningStyles(level: "green" | "yellow" | "red") {
   switch (level) {
@@ -32,15 +40,7 @@ function getWarningStyles(level: "green" | "yellow" | "red") {
   }
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(amount);
-}
-
 export function createOverlay(response: CartCheckResponse): void {
-  // Remove existing overlay if any
   removeOverlay();
 
   const host = document.createElement("div");
@@ -49,15 +49,13 @@ export function createOverlay(response: CartCheckResponse): void {
     "position:fixed;bottom:20px;right:20px;z-index:2147483647;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;";
 
   const shadow = host.attachShadow({ mode: "closed" });
-
   const styles = getWarningStyles(response.warning_level);
 
   const budgetListHtml = response.affected_budgets
     .slice(0, 3)
     .map((b) => {
       const pct = Math.min(b.percentage_used, 100);
-      const barColor =
-        pct >= 90 ? "#ef4444" : pct >= 75 ? "#eab308" : "#22c55e";
+      const barColor = pct >= 90 ? "#ef4444" : pct >= 75 ? "#eab308" : "#22c55e";
       return `
       <div style="margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;">
@@ -75,9 +73,7 @@ export function createOverlay(response: CartCheckResponse): void {
   const template = document.createElement("template");
   template.innerHTML = `
     <style>
-      :host {
-        all: initial;
-      }
+      :host { all: initial; }
       .bw-overlay {
         width: 320px;
         border: 2px solid ${styles.borderColor};
@@ -136,18 +132,9 @@ export function createOverlay(response: CartCheckResponse): void {
         line-height: 1;
         border-radius: 4px;
       }
-      .bw-close:hover {
-        background: rgba(0,0,0,0.05);
-        color: #374151;
-      }
-      .bw-body {
-        padding: 16px;
-      }
-      .bw-message {
-        font-size: 14px;
-        margin-bottom: 12px;
-        color: #374151;
-      }
+      .bw-close:hover { background: rgba(0,0,0,0.05); color: #374151; }
+      .bw-body { padding: 16px; }
+      .bw-message { font-size: 14px; margin-bottom: 12px; color: #374151; }
       .bw-amounts {
         display: flex;
         justify-content: space-between;
@@ -163,13 +150,8 @@ export function createOverlay(response: CartCheckResponse): void {
         text-transform: uppercase;
         letter-spacing: 0.05em;
       }
-      .bw-amount-value {
-        font-size: 16px;
-        font-weight: 600;
-      }
-      .bw-budgets {
-        margin-bottom: 12px;
-      }
+      .bw-amount-value { font-size: 16px; font-weight: 600; }
+      .bw-budgets { margin-bottom: 12px; }
       .bw-budgets-title {
         font-size: 12px;
         font-weight: 600;
@@ -178,10 +160,7 @@ export function createOverlay(response: CartCheckResponse): void {
         letter-spacing: 0.05em;
         margin-bottom: 8px;
       }
-      .bw-actions {
-        display: flex;
-        gap: 8px;
-      }
+      .bw-actions { display: flex; gap: 8px; }
       .bw-btn {
         flex: 1;
         padding: 8px 12px;
@@ -194,27 +173,16 @@ export function createOverlay(response: CartCheckResponse): void {
         text-decoration: none;
         display: inline-block;
       }
-      .bw-btn-primary {
-        background: #2563eb;
-        color: white;
-      }
-      .bw-btn-primary:hover {
-        background: #1d4ed8;
-      }
-      .bw-btn-secondary {
-        background: white;
-        color: #374151;
-        border: 1px solid #d1d5db;
-      }
-      .bw-btn-secondary:hover {
-        background: #f9fafb;
-      }
+      .bw-btn-primary { background: #2563eb; color: white; }
+      .bw-btn-primary:hover { background: #1d4ed8; }
+      .bw-btn-secondary { background: white; color: #374151; border: 1px solid #d1d5db; }
+      .bw-btn-secondary:hover { background: #f9fafb; }
     </style>
     <div class="bw-overlay">
       <div class="bw-header">
         <div class="bw-title">
           <div class="bw-icon">${styles.icon}</div>
-          BudgetWise
+          Kallio
         </div>
         <button class="bw-close" aria-label="Dismiss">&times;</button>
       </div>
@@ -250,7 +218,6 @@ export function createOverlay(response: CartCheckResponse): void {
 
   shadow.appendChild(template.content.cloneNode(true));
 
-  // Attach event listeners
   const closeBtn = shadow.querySelector(".bw-close") as HTMLButtonElement;
   const dismissBtn = shadow.querySelector(".bw-dismiss") as HTMLButtonElement;
 
@@ -265,7 +232,6 @@ export function createOverlay(response: CartCheckResponse): void {
   closeBtn?.addEventListener("click", dismiss);
   dismissBtn?.addEventListener("click", dismiss);
 
-  // Auto-dismiss green warnings
   if (response.warning_level === "green") {
     setTimeout(dismiss, AUTO_DISMISS_DELAY);
   }
@@ -274,8 +240,55 @@ export function createOverlay(response: CartCheckResponse): void {
 }
 
 export function removeOverlay(): void {
-  const existing = document.getElementById(OVERLAY_HOST_ID);
-  if (existing) {
-    existing.remove();
-  }
+  document.getElementById(OVERLAY_HOST_ID)?.remove();
+}
+
+export function createBanner(response: CartCheckResponse): void {
+  removeBanner();
+
+  const overAmount = Math.abs(response.total_remaining);
+  const host = document.createElement("div");
+  host.id = BANNER_HOST_ID;
+  host.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:2147483646;";
+
+  const shadow = host.attachShadow({ mode: "closed" });
+  shadow.innerHTML = `
+    <style>
+      .banner {
+        background: #dc2626;
+        color: white;
+        padding: 10px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      }
+      .dismiss {
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        padding: 4px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        white-space: nowrap;
+        margin-left: 16px;
+      }
+      .dismiss:hover { background: rgba(255,255,255,0.3); }
+    </style>
+    <div class="banner">
+      <span>⚠ This purchase (${formatCurrency(response.cart_total)}) exceeds your budget — ${formatCurrency(overAmount)} over limit</span>
+      <button class="dismiss">Dismiss</button>
+    </div>
+  `;
+
+  shadow.querySelector(".dismiss")?.addEventListener("click", removeBanner);
+  document.body.prepend(host);
+}
+
+export function removeBanner(): void {
+  document.getElementById(BANNER_HOST_ID)?.remove();
 }

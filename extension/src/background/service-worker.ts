@@ -9,30 +9,30 @@ import type {
   CartCheckRequest,
   ExtensionSettings,
 } from "../shared/types";
+import { isCheckoutUrl } from "../content/detector";
 
 const BUDGET_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
-
-const CHECKOUT_PATTERNS = [
-  /amazon\.com\/(gp\/buy|checkout|gp\/cart|cart)/i,
-  /target\.com\/(checkout|cart)/i,
-  /walmart\.com\/(checkout|cart)/i,
-];
-
-function isCheckoutUrl(url: string): boolean {
-  return CHECKOUT_PATTERNS.some((pattern) => pattern.test(url));
-}
 
 // --- Tab monitoring ---
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status !== "complete" || !tab.url) return;
+  if (!isCheckoutUrl(tab.url)) return;
 
-  if (isCheckoutUrl(tab.url)) {
-    try {
-      await chrome.tabs.sendMessage(tabId, { type: "CHECKOUT_DETECTED" });
-    } catch {
-      // Content script not yet loaded, ignore
-    }
+  const settings = await getSettings();
+  if (!settings.notificationsEnabled || !settings.authToken) return;
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["dist/content.js"],
+    });
+    await chrome.scripting.insertCSS({
+      target: { tabId },
+      files: ["dist/content.css"],
+    });
+  } catch {
+    // already injected or no permission for this tab
   }
 });
 
@@ -46,10 +46,8 @@ chrome.runtime.onMessage.addListener(
   ) => {
     handleMessage(message)
       .then(sendResponse)
-      .catch((error: Error) =>
-        sendResponse({ error: error.message })
-      );
-    return true; // Keep the message channel open for async response
+      .catch((error: Error) => sendResponse({ error: error.message }));
+    return true;
   }
 );
 
@@ -69,7 +67,9 @@ async function handleMessage(message: ExtensionMessage): Promise<unknown> {
 
     case "SET_AUTH_TOKEN":
       return saveSettings({
-        authToken: (message.payload as { token: string }).token,
+        authToken: (message.payload as { token: string | null }).token,
+        cachedBudgetData: null,
+        lastBudgetFetch: 0,
       });
 
     case "GET_AUTH_STATUS": {
@@ -80,6 +80,9 @@ async function handleMessage(message: ExtensionMessage): Promise<unknown> {
       };
     }
 
+    case "PING":
+      return { ok: true };
+
     default:
       return { error: "Unknown message type" };
   }
@@ -87,10 +90,7 @@ async function handleMessage(message: ExtensionMessage): Promise<unknown> {
 
 async function handleGetBudgetStatus() {
   const settings = await getSettings();
-
-  if (!settings.authToken) {
-    return { error: "Not authenticated" };
-  }
+  if (!settings.authToken) return { error: "Not authenticated" };
 
   const now = Date.now();
   const isStale = now - settings.lastBudgetFetch > BUDGET_CACHE_TTL;
@@ -101,26 +101,16 @@ async function handleGetBudgetStatus() {
 
   try {
     const data = await fetchBudgetStatus(settings.apiUrl, settings.authToken);
-    await saveSettings({
-      cachedBudgetData: data,
-      lastBudgetFetch: now,
-    });
+    await saveSettings({ cachedBudgetData: data, lastBudgetFetch: now });
     return data;
   } catch (error) {
-    // Return cached data if available, even if stale
-    if (settings.cachedBudgetData) {
-      return settings.cachedBudgetData;
-    }
+    if (settings.cachedBudgetData) return settings.cachedBudgetData;
     throw error;
   }
 }
 
 async function handleCheckCart(request: CartCheckRequest) {
   const settings = await getSettings();
-
-  if (!settings.authToken) {
-    return { error: "Not authenticated" };
-  }
-
+  if (!settings.authToken) return { error: "Not authenticated" };
   return checkCart(settings.apiUrl, settings.authToken, request);
 }

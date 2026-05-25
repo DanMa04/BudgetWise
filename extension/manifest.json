@@ -1,31 +1,18 @@
 {
   "manifest_version": 3,
-  "name": "BudgetWise",
+  "name": "Kallio",
   "version": "1.0.0",
-  "description": "Get budget warnings while shopping online. Alerts you when purchases exceed your budget.",
-  "permissions": ["storage", "tabs", "activeTab"],
-  "host_permissions": [
-    "*://*.amazon.com/*",
-    "*://*.target.com/*",
-    "*://*.walmart.com/*"
-  ],
+  "description": "Get budget warnings while shopping online.",
+  "permissions": ["storage", "tabs", "activeTab", "scripting"],
+  "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "dist/background.js"
   },
   "content_scripts": [
     {
-      "matches": [
-        "*://*.amazon.com/gp/buy/*",
-        "*://*.amazon.com/checkout/*",
-        "*://*.amazon.com/gp/cart/*",
-        "*://*.amazon.com/cart/*",
-        "*://*.target.com/checkout*",
-        "*://*.target.com/cart*",
-        "*://*.walmart.com/checkout*",
-        "*://*.walmart.com/cart*"
-      ],
-      "js": ["dist/content.js"],
-      "css": ["dist/content.css"]
+      "matches": ["http://localhost:5173/*", "https://kallio.app/*"],
+      "js": ["dist/settings-bridge.js"],
+      "run_at": "document_idle"
     }
   ],
   "action": {

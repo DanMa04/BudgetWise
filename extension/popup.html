@@ -3,30 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BudgetWise</title>
+  <title>Kallio</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <div id="app">
     <div class="header">
       <div class="logo">
-        <div class="logo-icon">B</div>
-        <span class="logo-text">BudgetWise</span>
+        <div class="logo-icon">K</div>
+        <span class="logo-text">Kallio</span>
       </div>
       <div id="status-dot" class="status-dot"></div>
     </div>
 
-    <div id="login-view" class="view" style="display:none;">
-      <p class="login-message">Connect to your BudgetWise account to get budget warnings while shopping.</p>
-      <div class="form-group">
-        <label for="api-url">API URL</label>
-        <input type="text" id="api-url" value="http://localhost:8000/api/v1" placeholder="API URL">
-      </div>
-      <div class="form-group">
-        <label for="auth-token">Auth Token</label>
-        <input type="password" id="auth-token" placeholder="Paste your auth token">
-      </div>
-      <button id="connect-btn" class="btn btn-primary">Connect</button>
+    <div id="not-connected-view" class="view" style="display:none;">
+      <p class="login-message">Connect Kallio to your account to get budget warnings while shopping.</p>
+      <button id="open-settings-btn" class="btn btn-primary">Connect to Kallio</button>
     </div>
 
     <div id="budget-view" class="view" style="display:none;">
@@ -46,24 +38,15 @@
 
       <div id="budget-list" class="budget-list"></div>
 
-      <div class="site-toggles">
-        <h3>Enabled Sites</h3>
+      <div class="notifications-toggle">
         <label class="toggle-row">
-          <span>Amazon</span>
-          <input type="checkbox" id="toggle-amazon" checked>
-        </label>
-        <label class="toggle-row">
-          <span>Target</span>
-          <input type="checkbox" id="toggle-target" checked>
-        </label>
-        <label class="toggle-row">
-          <span>Walmart</span>
-          <input type="checkbox" id="toggle-walmart" checked>
+          <span>Enable warnings</span>
+          <input type="checkbox" id="toggle-notifications">
         </label>
       </div>
 
       <div class="footer-actions">
-        <a href="http://localhost:5173" target="_blank" class="btn btn-secondary">Open BudgetWise</a>
+        <a id="open-kallio-link" href="http://localhost:5173" target="_blank" class="btn btn-secondary">Open Kallio</a>
         <button id="disconnect-btn" class="btn btn-danger-text">Disconnect</button>
       </div>
     </div>

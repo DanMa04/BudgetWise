@@ -1,4 +1,5 @@
 from app.models.account import Account
+from app.models.extension_token import ExtensionToken
 from app.models.budget import Budget
 from app.models.categorization_rule import CategorizationRule
 from app.models.category import Category
@@ -30,4 +31,5 @@ __all__ = [
     "GoalContribution",
     "NotificationPreference",
     "NotificationLog",
+    "ExtensionToken",
 ]

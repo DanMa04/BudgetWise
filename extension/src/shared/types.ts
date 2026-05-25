@@ -33,11 +33,7 @@ export interface CartCheckResponse {
 export interface ExtensionSettings {
   apiUrl: string;
   authToken: string | null;
-  enabledSites: {
-    amazon: boolean;
-    target: boolean;
-    walmart: boolean;
-  };
+  notificationsEnabled: boolean;
   lastBudgetFetch: number;
   cachedBudgetData: BudgetCheckResponse | null;
 }
@@ -49,7 +45,7 @@ export type MessageType =
   | "UPDATE_SETTINGS"
   | "SET_AUTH_TOKEN"
   | "GET_AUTH_STATUS"
-  | "CHECKOUT_DETECTED";
+  | "PING";
 
 export interface ExtensionMessage {
   type: MessageType;

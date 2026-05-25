@@ -10,11 +10,7 @@ const DEFAULT_API_URL = "http://localhost:8000/api/v1";
 const DEFAULT_SETTINGS: ExtensionSettings = {
   apiUrl: DEFAULT_API_URL,
   authToken: null,
-  enabledSites: {
-    amazon: true,
-    target: true,
-    walmart: true,
-  },
+  notificationsEnabled: true,
   lastBudgetFetch: 0,
   cachedBudgetData: null,
 };

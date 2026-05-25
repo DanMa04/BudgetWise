@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from decimal import Decimal
 
 from pydantic import BaseModel
@@ -36,3 +37,13 @@ class CartCheckResponse(BaseModel):
     warning_level: str  # "green", "yellow", "red"
     message: str
     affected_budgets: list[BudgetStatusItem]
+
+
+class ExtensionTokenResponse(BaseModel):
+    token: str
+    expires_at: datetime
+
+
+class ExtensionTokenStatus(BaseModel):
+    is_connected: bool
+    expires_at: datetime | None = None

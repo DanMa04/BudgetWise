@@ -5,6 +5,8 @@ import type {
   AuthStatusResponse,
 } from "../shared/types";
 
+const SETTINGS_URL = "http://localhost:5173/settings";
+
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -20,16 +22,15 @@ function sendMessage<T>(message: ExtensionMessage): Promise<T> {
   });
 }
 
-const loginView = document.getElementById("login-view")!;
+const notConnectedView = document.getElementById("not-connected-view")!;
 const budgetView = document.getElementById("budget-view")!;
 const statusDot = document.getElementById("status-dot")!;
-const connectBtn = document.getElementById("connect-btn")!;
+const openSettingsBtn = document.getElementById("open-settings-btn")!;
 const disconnectBtn = document.getElementById("disconnect-btn")!;
-const apiUrlInput = document.getElementById("api-url") as HTMLInputElement;
-const authTokenInput = document.getElementById("auth-token") as HTMLInputElement;
+const toggleNotifications = document.getElementById("toggle-notifications") as HTMLInputElement;
 
-function showView(view: "login" | "budget") {
-  loginView.style.display = view === "login" ? "block" : "none";
+function showView(view: "not-connected" | "budget") {
+  notConnectedView.style.display = view === "not-connected" ? "block" : "none";
   budgetView.style.display = view === "budget" ? "block" : "none";
   statusDot.className = view === "budget" ? "status-dot connected" : "status-dot";
 }
@@ -60,11 +61,7 @@ function renderBudgetData(data: BudgetCheckResponse) {
     .slice(0, 5)
     .map((b) => {
       const color =
-        b.remaining < 0
-          ? "#ef4444"
-          : b.percentage_used >= 75
-            ? "#eab308"
-            : "#16a34a";
+        b.remaining < 0 ? "#ef4444" : b.percentage_used >= 75 ? "#eab308" : "#16a34a";
       return `
         <div class="budget-item">
           <span class="budget-item-name">${b.category_name}</span>
@@ -75,50 +72,24 @@ function renderBudgetData(data: BudgetCheckResponse) {
     .join("");
 }
 
-function applySiteToggles(settings: ExtensionSettings) {
-  const amazon = document.getElementById("toggle-amazon") as HTMLInputElement;
-  const target = document.getElementById("toggle-target") as HTMLInputElement;
-  const walmart = document.getElementById("toggle-walmart") as HTMLInputElement;
-
-  amazon.checked = settings.enabledSites.amazon;
-  target.checked = settings.enabledSites.target;
-  walmart.checked = settings.enabledSites.walmart;
-
-  const updateSite = (site: "amazon" | "target" | "walmart", enabled: boolean) => {
-    sendMessage({
-      type: "UPDATE_SETTINGS",
-      payload: {
-        enabledSites: { ...settings.enabledSites, [site]: enabled },
-      },
-    });
-    settings.enabledSites[site] = enabled;
-  };
-
-  amazon.addEventListener("change", () => updateSite("amazon", amazon.checked));
-  target.addEventListener("change", () => updateSite("target", target.checked));
-  walmart.addEventListener("change", () => updateSite("walmart", walmart.checked));
-}
-
-connectBtn.addEventListener("click", async () => {
-  const token = authTokenInput.value.trim();
-  const apiUrl = apiUrlInput.value.trim();
-
-  if (!token) return;
-
-  await sendMessage({
-    type: "UPDATE_SETTINGS",
-    payload: { apiUrl, authToken: token },
-  });
-
-  await init();
+openSettingsBtn.addEventListener("click", () => {
+  chrome.tabs.create({ url: SETTINGS_URL });
+  window.close();
 });
 
 disconnectBtn.addEventListener("click", async () => {
   await sendMessage({
-    type: "UPDATE_SETTINGS",
-    payload: { authToken: null, cachedBudgetData: null, lastBudgetFetch: 0 },
+    type: "SET_AUTH_TOKEN",
+    payload: { token: null },
   });
-  showView("login");
+  showView("not-connected");
+});
+
+toggleNotifications.addEventListener("change", async () => {
+  await sendMessage({
+    type: "UPDATE_SETTINGS",
+    payload: { notificationsEnabled: toggleNotifications.checked },
+  });
 });
 
 async function init() {
@@ -127,10 +98,7 @@ async function init() {
   });
 
   if (!authStatus?.isAuthenticated) {
-    showView("login");
-    if (authStatus?.apiUrl) {
-      apiUrlInput.value = authStatus.apiUrl;
-    }
+    showView("not-connected");
     return;
   }
 
@@ -140,7 +108,7 @@ async function init() {
     type: "GET_SETTINGS",
   });
   if (settings) {
-    applySiteToggles(settings);
+    toggleNotifications.checked = settings.notificationsEnabled;
   }
 
   const budgetData = await sendMessage<BudgetCheckResponse>({

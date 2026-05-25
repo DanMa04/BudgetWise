@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="BudgetWise API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Kallio API", version="0.1.0", lifespan=lifespan)
 
 # --- Rate limiter setup ---
 app.state.limiter = limiter
@@ -65,6 +65,7 @@ app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.frontend_url],
+    allow_origin_regex=r"chrome-extension://[a-z]{32}",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
