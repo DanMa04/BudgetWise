@@ -32,11 +32,10 @@ function parseJsonLd(doc: Document): number | null {
   for (const script of doc.querySelectorAll('script[type="application/ld+json"]')) {
     try {
       const data = JSON.parse(script.textContent ?? "{}");
+      // Only use cart-level total fields — offers.price / data.price are product prices
       const candidates = [
-        data?.offers?.price,
         data?.totalPaymentDue?.price,
-        data?.price,
-        data?.offers?.[0]?.price,
+        data?.totalPaymentDue?.["@value"],
       ];
       for (const c of candidates) {
         if (c != null) {
@@ -83,15 +82,16 @@ function parseGlobalState(): number | null {
 
 // Strategy 3: DOM label-proximity heuristic
 function parseDomHeuristic(doc: Document): number | null {
-  const TOTAL_LABEL = /\b(order\s+)?total\b|grand\s+total|estimated\s+total/i;
-  const PRICE_PATTERN = /\$\s*\d[\d,]*(\.\d{2})?/;
+  // Match only exact label strings — anchored so "Warranty Total" doesn't qualify
+  const TOTAL_LABEL =
+    /^(grand\s+total|order\s+total|estimated\s+total|order\s+summary\s+total|total)$/i;
 
   const candidates: number[] = [];
 
   const allElements = doc.querySelectorAll("*");
   for (const el of allElements) {
     if (el.children.length > 0) continue; // leaf nodes only
-    const text = el.textContent ?? "";
+    const text = (el.textContent ?? "").trim();
     if (!TOTAL_LABEL.test(text)) continue;
 
     const searchTargets: (Element | null)[] = [

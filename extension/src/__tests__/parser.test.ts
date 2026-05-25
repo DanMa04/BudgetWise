@@ -77,14 +77,15 @@ describe("parseCartTotal", () => {
     expect(result.confidence).toBe(0.95);
   });
 
-  it("parses total from JSON-LD offers.price", () => {
+  it("ignores JSON-LD offers.price (product price, not cart total)", () => {
     const doc = makeDoc(`
       <script type="application/ld+json">
         {"@type":"Product","offers":{"price":"49.99"}}
       </script>
     `);
+    // offers.price is a product field — should not be treated as cart total
     const result = parseCartTotal(doc);
-    expect(result.total).toBe(49.99);
+    expect(result.total).toBe(null);
   });
 
   it("skips malformed JSON-LD and falls through", () => {
