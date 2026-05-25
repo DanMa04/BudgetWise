@@ -65,7 +65,7 @@ app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.frontend_url],
-    allow_origin_regex=r"chrome-extension://[a-z]{32}",
+    allow_origin_regex=r"(chrome|moz)-extension://[a-z0-9-]{32,}",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

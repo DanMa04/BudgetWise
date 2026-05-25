@@ -1,11 +1,13 @@
 {
-  "name": "budgetwise-extension",
+  "name": "kallio-extension",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "node build.js",
-    "dev": "node build.js --watch",
+    "build": "node build.js --browser=chrome",
+    "build:firefox": "node build.js --browser=firefox",
+    "dev": "node build.js --browser=chrome --watch",
+    "dev:firefox": "node build.js --browser=firefox --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"

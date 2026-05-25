@@ -1,9 +1,16 @@
-/* Minimal content script CSS — the overlay uses Shadow DOM for isolation.
-   This file is required by the manifest but kept minimal. */
-#budgetwise-overlay-host {
+/* Overlay hosts — inner styles live in Shadow DOM; these are just stacking context anchors. */
+#kallio-overlay-host {
   all: initial;
   position: fixed;
   bottom: 20px;
   right: 20px;
   z-index: 2147483647;
+}
+
+#kallio-budget-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2147483646;
 }

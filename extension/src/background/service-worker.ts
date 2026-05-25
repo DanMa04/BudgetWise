@@ -29,7 +29,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     });
     await chrome.scripting.insertCSS({
       target: { tabId },
-      files: ["dist/content.css"],
+      css: "#kallio-overlay-host{all:initial;position:fixed;bottom:20px;right:20px;z-index:2147483647}#kallio-budget-banner{position:fixed;top:0;left:0;right:0;z-index:2147483646}",
     });
   } catch {
     // already injected or no permission for this tab
