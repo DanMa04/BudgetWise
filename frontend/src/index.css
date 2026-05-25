@@ -144,6 +144,28 @@
   filter: saturate(0.82);
 }
 
+/* ---- Water background blob animations ----------------------------------- */
+@keyframes water-blob-1 {
+  0%, 100% { transform: translate(0,    0)    scale(1);    }
+  28%       { transform: translate(4%,  6%)   scale(1.06); }
+  55%       { transform: translate(-3%, 2%)   scale(0.95); }
+  78%       { transform: translate(2%,  -4%)  scale(1.03); }
+}
+
+@keyframes water-blob-2 {
+  0%, 100% { transform: translate(0,    0)    scale(1);    }
+  35%       { transform: translate(-5%, 4%)   scale(1.08); }
+  65%       { transform: translate(3%,  -5%)  scale(0.94); }
+  85%       { transform: translate(-2%, 2%)   scale(1.04); }
+}
+
+@keyframes water-blob-3 {
+  0%, 100% { transform: translate(0,    0)    scale(1);    }
+  22%       { transform: translate(6%,  -3%)  scale(1.05); }
+  50%       { transform: translate(-2%, 5%)   scale(1.07); }
+  75%       { transform: translate(4%,  1%)   scale(0.96); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

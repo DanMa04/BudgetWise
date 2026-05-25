@@ -3,12 +3,15 @@ import { Outlet } from "react-router-dom";
 import { Header } from "./Header";
 import { MobileNav } from "./MobileNav";
 import { Sidebar } from "./Sidebar";
+import { WaterBackground } from "./WaterBackground";
 import { Spinner } from "@/components/ui/spinner";
 import { SidebarProvider } from "@/context/SidebarContext";
 
 function AppShellInner() {
   return (
-    <div className="flex h-screen bg-background">
+    <>
+    <WaterBackground />
+    <div className="relative flex h-screen" style={{ zIndex: 1 }}>
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground focus:outline-none"
@@ -30,6 +33,7 @@ function AppShellInner() {
       </div>
       <MobileNav />
     </div>
+    </>
   );
 }
 

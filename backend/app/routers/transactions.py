@@ -68,7 +68,7 @@ async def list_transactions(
         max_amount=max_amount,
         search=search,
     )
-    items, total = await get_transactions(
+    items, total, income_sum, expense_sum = await get_transactions(
         db, current_user.id, filters, page=page, per_page=per_page,
         sort_by=sort_by, sort_dir=sort_dir,
         uncategorized_only=uncategorized_only,
@@ -80,6 +80,8 @@ async def list_transactions(
         "page": page,
         "per_page": per_page,
         "total_pages": total_pages,
+        "income_sum": float(income_sum),
+        "expense_sum": float(expense_sum),
     }
 
 

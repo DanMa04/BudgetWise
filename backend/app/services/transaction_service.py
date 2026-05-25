@@ -1,6 +1,8 @@
 import uuid
 
-from sqlalchemy import func, select
+from decimal import Decimal
+
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.transaction import Transaction
@@ -30,43 +32,60 @@ async def get_transactions(
     sort_by: str = "date",
     sort_dir: str = "desc",
     uncategorized_only: bool = False,
-) -> tuple[list[Transaction], int]:
+) -> tuple[list[Transaction], int, Decimal, Decimal]:
     base_query = select(Transaction).where(Transaction.user_id == user_id)
     count_query = select(func.count()).select_from(Transaction).where(
         Transaction.user_id == user_id
     )
+    sum_query = select(
+        func.coalesce(func.sum(case((Transaction.amount >= 0, Transaction.amount), else_=0)), 0).label("income_sum"),
+        func.coalesce(func.sum(case((Transaction.amount < 0, Transaction.amount), else_=0)), 0).label("expense_sum"),
+    ).where(Transaction.user_id == user_id)
 
     if uncategorized_only:
         base_query = base_query.where(Transaction.category_id.is_(None))
         count_query = count_query.where(Transaction.category_id.is_(None))
+        sum_query = sum_query.where(Transaction.category_id.is_(None))
 
     # Apply filters
     if filters.date_from is not None:
         base_query = base_query.where(Transaction.date >= filters.date_from)
         count_query = count_query.where(Transaction.date >= filters.date_from)
+        sum_query = sum_query.where(Transaction.date >= filters.date_from)
     if filters.date_to is not None:
         base_query = base_query.where(Transaction.date <= filters.date_to)
         count_query = count_query.where(Transaction.date <= filters.date_to)
+        sum_query = sum_query.where(Transaction.date <= filters.date_to)
     if filters.category_id is not None:
         base_query = base_query.where(Transaction.category_id == filters.category_id)
         count_query = count_query.where(Transaction.category_id == filters.category_id)
+        sum_query = sum_query.where(Transaction.category_id == filters.category_id)
     if filters.account_id is not None:
         base_query = base_query.where(Transaction.account_id == filters.account_id)
         count_query = count_query.where(Transaction.account_id == filters.account_id)
+        sum_query = sum_query.where(Transaction.account_id == filters.account_id)
     if filters.min_amount is not None:
         base_query = base_query.where(Transaction.amount >= filters.min_amount)
         count_query = count_query.where(Transaction.amount >= filters.min_amount)
+        sum_query = sum_query.where(Transaction.amount >= filters.min_amount)
     if filters.max_amount is not None:
         base_query = base_query.where(Transaction.amount <= filters.max_amount)
         count_query = count_query.where(Transaction.amount <= filters.max_amount)
+        sum_query = sum_query.where(Transaction.amount <= filters.max_amount)
     if filters.search is not None:
         search_pattern = f"%{filters.search}%"
         base_query = base_query.where(Transaction.description.ilike(search_pattern))
         count_query = count_query.where(Transaction.description.ilike(search_pattern))
+        sum_query = sum_query.where(Transaction.description.ilike(search_pattern))
 
-    # Get total count
+    # Get total count and sums over the full filtered set (not just this page)
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
+
+    sum_result = await db.execute(sum_query)
+    sums = sum_result.one()
+    income_sum: Decimal = sums.income_sum or Decimal(0)
+    expense_sum: Decimal = sums.expense_sum or Decimal(0)
 
     # Apply sorting
     sort_column = getattr(Transaction, sort_by, Transaction.date)
@@ -82,7 +101,7 @@ async def get_transactions(
     result = await db.execute(base_query)
     items = list(result.scalars().all())
 
-    return items, total
+    return items, total, income_sum, expense_sum
 
 
 async def get_transaction(

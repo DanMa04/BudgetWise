@@ -63,6 +63,8 @@ export interface PaginatedResponse<T> {
   page: number;
   per_page: number;
   total_pages: number;
+  income_sum?: number;
+  expense_sum?: number;
 }
 
 export interface Budget {

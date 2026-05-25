@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, CheckCheck, Plus } from "lucide-react";
+import { AlertTriangle, CheckCheck, Plus, TrendingDown, TrendingUp, Scale } from "lucide-react";
+import { formatCurrency } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
 import { TransactionList } from "@/components/transactions/TransactionList";
 import { TransactionFilters } from "@/components/transactions/TransactionFilters";
@@ -93,6 +94,42 @@ export function TransactionsPage() {
         onFilterChange={setFilters}
         categories={categories}
       />
+
+      {data && data.total > 0 && data.income_sum !== undefined && (
+        <div className="flex flex-wrap gap-3 rounded-xl border border-white/8 bg-card/65 px-5 py-3 backdrop-blur-xl text-sm">
+          <div className="flex items-center gap-2">
+            <TrendingDown className="h-3.5 w-3.5 text-red-400" />
+            <span className="text-muted-foreground">Expenses</span>
+            <span className="font-semibold text-red-400">
+              {formatCurrency(Math.abs(data.expense_sum ?? 0))}
+            </span>
+          </div>
+          <div className="h-4 w-px bg-border self-center" />
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+            <span className="text-muted-foreground">Income</span>
+            <span className="font-semibold text-emerald-400">
+              {formatCurrency(data.income_sum ?? 0)}
+            </span>
+          </div>
+          <div className="h-4 w-px bg-border self-center" />
+          <div className="flex items-center gap-2">
+            <Scale className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-muted-foreground">Net</span>
+            {(() => {
+              const net = (data.income_sum ?? 0) + (data.expense_sum ?? 0);
+              return (
+                <span className={`font-semibold ${net >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  {net < 0 ? "-" : ""}{formatCurrency(Math.abs(net))}
+                </span>
+              );
+            })()}
+          </div>
+          <span className="ml-auto self-center text-xs text-muted-foreground">
+            {data.total} transaction{data.total !== 1 ? "s" : ""}
+          </span>
+        </div>
+      )}
 
       {error ? (
         <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
