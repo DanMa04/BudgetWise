@@ -9,6 +9,7 @@ import {
   fetchIncomeVsExpense,
   fetchTopMerchants,
   fetchCategoryVendors,
+  fetchVendorSpendingOverTime,
 } from "@/api/reports";
 
 export function useSpendingByCategory(startDate: string, endDate: string) {
@@ -133,6 +134,26 @@ export function useCategoryVendors(
       const token = await getToken();
       if (!token) throw new Error("Not authenticated");
       return fetchCategoryVendors(token, categoryId!, startDate, endDate, limit);
+    },
+    enabled: !!categoryId,
+  });
+}
+
+export function useVendorSpendingOverTime(
+  categoryId: string | undefined,
+  startDate: string,
+  endDate: string,
+  granularity: string,
+  limit: number = 10,
+) {
+  const { getToken } = useAuth();
+
+  return useQuery({
+    queryKey: ["vendor-spending-over-time", categoryId, startDate, endDate, granularity, limit],
+    queryFn: async () => {
+      const token = await getToken();
+      if (!token) throw new Error("Not authenticated");
+      return fetchVendorSpendingOverTime(token, categoryId!, startDate, endDate, granularity, limit);
     },
     enabled: !!categoryId,
   });

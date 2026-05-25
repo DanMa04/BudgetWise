@@ -11,9 +11,12 @@ import type { CategoryVendor } from "@/types/models";
 
 interface VendorPieChartProps {
   data: CategoryVendor[];
+  activeVendors?: string[];
+  onVendorToggle?: (name: string) => void;
+  colorMap?: Map<string, string>;
 }
 
-const VENDOR_COLORS = [
+export const VENDOR_COLORS = [
   "#8b5cf6", "#f59e0b", "#10b981", "#ef4444", "#3b82f6",
   "#ec4899", "#14b8a6", "#f97316", "#6366f1", "#84cc16",
   "#06b6d4", "#e11d48", "#a855f7", "#22c55e", "#eab308",
@@ -42,7 +45,12 @@ function CustomTooltip({
   );
 }
 
-export function VendorPieChart({ data }: VendorPieChartProps) {
+export function VendorPieChart({
+  data,
+  activeVendors,
+  onVendorToggle,
+  colorMap,
+}: VendorPieChartProps) {
   const total = useMemo(
     () => data.reduce((sum, item) => sum + item.total_amount, 0),
     [data],
@@ -54,6 +62,11 @@ export function VendorPieChart({ data }: VendorPieChartProps) {
         No vendor data for this category
       </div>
     );
+  }
+
+  function isActive(name: string): boolean {
+    if (!activeVendors || activeVendors.length === 0) return true;
+    return activeVendors.includes(name);
   }
 
   return (
@@ -72,11 +85,21 @@ export function VendorPieChart({ data }: VendorPieChartProps) {
             isAnimationActive={true}
             animationDuration={600}
             animationEasing="ease-in-out"
+            onClick={
+              onVendorToggle
+                ? (entry: CategoryVendor) => onVendorToggle(entry.description)
+                : undefined
+            }
+            cursor={onVendorToggle ? "pointer" : undefined}
           >
             {data.map((entry, index) => (
               <Cell
                 key={entry.description}
-                fill={VENDOR_COLORS[index % VENDOR_COLORS.length]}
+                fill={
+                  colorMap?.get(entry.description) ??
+                  VENDOR_COLORS[index % VENDOR_COLORS.length]
+                }
+                fillOpacity={isActive(entry.description) ? 1 : 0.25}
               />
             ))}
           </Pie>

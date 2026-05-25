@@ -373,6 +373,17 @@ export interface CategoryVendor {
   percentage: number;
 }
 
+export interface VendorPeriodAmount {
+  vendor_name: string;
+  amount: number;
+}
+
+export interface VendorSpendingOverTime {
+  period: string;
+  vendors: VendorPeriodAmount[];
+  total: number;
+}
+
 export interface CategorizationRule {
   id: string;
   user_id: string;

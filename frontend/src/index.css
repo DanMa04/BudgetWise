@@ -147,23 +147,41 @@
 /* ---- Water background blob animations ----------------------------------- */
 @keyframes water-blob-1 {
   0%, 100% { transform: translate(0,    0)    scale(1);    }
-  28%       { transform: translate(4%,  6%)   scale(1.06); }
-  55%       { transform: translate(-3%, 2%)   scale(0.95); }
-  78%       { transform: translate(2%,  -4%)  scale(1.03); }
+  28%       { transform: translate(5%,  7%)   scale(1.07); }
+  55%       { transform: translate(-4%, 3%)   scale(0.94); }
+  78%       { transform: translate(3%,  -5%)  scale(1.04); }
 }
 
 @keyframes water-blob-2 {
   0%, 100% { transform: translate(0,    0)    scale(1);    }
-  35%       { transform: translate(-5%, 4%)   scale(1.08); }
-  65%       { transform: translate(3%,  -5%)  scale(0.94); }
-  85%       { transform: translate(-2%, 2%)   scale(1.04); }
+  35%       { transform: translate(-6%, 5%)   scale(1.09); }
+  65%       { transform: translate(4%,  -6%)  scale(0.93); }
+  85%       { transform: translate(-3%, 3%)   scale(1.05); }
 }
 
 @keyframes water-blob-3 {
   0%, 100% { transform: translate(0,    0)    scale(1);    }
-  22%       { transform: translate(6%,  -3%)  scale(1.05); }
-  50%       { transform: translate(-2%, 5%)   scale(1.07); }
-  75%       { transform: translate(4%,  1%)   scale(0.96); }
+  22%       { transform: translate(7%,  -4%)  scale(1.06); }
+  50%       { transform: translate(-3%, 6%)   scale(1.08); }
+  75%       { transform: translate(5%,  2%)   scale(0.95); }
+}
+
+@keyframes blob-morph-1 {
+  0%, 100% { border-radius: 60% 40% 55% 45% / 50% 60% 40% 50%; }
+  33%       { border-radius: 40% 60% 45% 55% / 60% 40% 55% 45%; }
+  66%       { border-radius: 55% 45% 60% 40% / 45% 55% 40% 60%; }
+}
+
+@keyframes blob-morph-2 {
+  0%, 100% { border-radius: 50% 50% 45% 55% / 40% 60% 55% 45%; }
+  40%       { border-radius: 65% 35% 50% 50% / 55% 45% 40% 60%; }
+  70%       { border-radius: 45% 55% 60% 40% / 50% 50% 60% 40%; }
+}
+
+@keyframes blob-morph-3 {
+  0%, 100% { border-radius: 45% 55% 40% 60% / 55% 45% 60% 40%; }
+  25%       { border-radius: 60% 40% 55% 45% / 40% 60% 45% 55%; }
+  75%       { border-radius: 50% 50% 60% 40% / 60% 40% 45% 55%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

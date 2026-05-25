@@ -16,6 +16,7 @@ from app.schemas.report import (
     SpendingByCategoryOverTime,
     SpendingTrend,
     TopMerchant,
+    VendorSpendingOverTime,
 )
 from app.services.report_service import (
     get_budget_vs_actual,
@@ -26,6 +27,7 @@ from app.services.report_service import (
     get_spending_by_category_over_time,
     get_spending_trends,
     get_top_merchants,
+    get_vendor_spending_over_time,
 )
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -140,3 +142,19 @@ async def category_vendors(
 ):
     start, end = _default_date_range(start_date, end_date)
     return await get_category_vendors(db, current_user.id, category_id, start, end, limit)
+
+
+@router.get("/vendor-spending-over-time", response_model=list[VendorSpendingOverTime])
+async def vendor_spending_over_time(
+    category_id: uuid.UUID = Query(...),
+    start_date: date | None = Query(None),
+    end_date: date | None = Query(None),
+    granularity: str = Query("monthly"),
+    limit: int = Query(10),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    start, end = _default_date_range(start_date, end_date)
+    return await get_vendor_spending_over_time(
+        db, current_user.id, category_id, start, end, granularity, limit
+    )

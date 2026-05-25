@@ -19,6 +19,8 @@ from app.schemas.report import (
     SpendingByCategoryOverTime,
     SpendingTrend,
     TopMerchant,
+    VendorPeriodAmount,
+    VendorSpendingOverTime,
 )
 
 
@@ -498,4 +500,93 @@ async def get_category_vendors(
             else 0,
         )
         for row in rows
+    ]
+
+
+async def get_vendor_spending_over_time(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    category_id: uuid.UUID,
+    start_date: date,
+    end_date: date,
+    granularity: str = "monthly",
+    limit: int = 10,
+) -> list[VendorSpendingOverTime]:
+    normalized = func.lower(func.trim(Transaction.description))
+
+    # Find top-N vendors by total spend within the category (or its children)
+    top_query = (
+        select(normalized.label("vendor_name"))
+        .outerjoin(Category, Transaction.category_id == Category.id)
+        .where(
+            Transaction.user_id == user_id,
+            Transaction.date >= start_date,
+            Transaction.date <= end_date,
+            Transaction.amount < 0,
+            or_(
+                Transaction.category_id == category_id,
+                Category.parent_id == category_id,
+            ),
+        )
+        .group_by(normalized)
+        .order_by(func.sum(func.abs(Transaction.amount)).desc())
+        .limit(limit)
+    )
+
+    top_result = await db.execute(top_query)
+    vendor_names = [row.vendor_name for row in top_result.all()]
+
+    if not vendor_names:
+        return []
+
+    # Fetch all transactions for those vendors, across the date range
+    query = (
+        select(
+            Transaction.date,
+            normalized.label("vendor_name"),
+            Transaction.amount,
+        )
+        .outerjoin(Category, Transaction.category_id == Category.id)
+        .where(
+            Transaction.user_id == user_id,
+            Transaction.date >= start_date,
+            Transaction.date <= end_date,
+            Transaction.amount < 0,
+            or_(
+                Transaction.category_id == category_id,
+                Category.parent_id == category_id,
+            ),
+            normalized.in_(vendor_names),
+        )
+        .order_by(Transaction.date)
+    )
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    grouped: dict[str, dict[str, float]] = {}
+    for row in rows:
+        period = _period_key(row.date, granularity)
+        if period not in grouped:
+            grouped[period] = {}
+        grouped[period][row.vendor_name] = (
+            grouped[period].get(row.vendor_name, 0.0) + abs(float(row.amount))
+        )
+
+    if not grouped:
+        return []
+
+    return [
+        VendorSpendingOverTime(
+            period=period,
+            vendors=[
+                VendorPeriodAmount(
+                    vendor_name=name,
+                    amount=round(grouped[period].get(name, 0.0), 2),
+                )
+                for name in vendor_names
+            ],
+            total=round(sum(grouped[period].values()), 2),
+        )
+        for period in sorted(grouped.keys())
     ]

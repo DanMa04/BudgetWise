@@ -78,6 +78,17 @@ class CategoryVendor(BaseModel):
     percentage: float
 
 
+class VendorPeriodAmount(BaseModel):
+    vendor_name: str
+    amount: float
+
+
+class VendorSpendingOverTime(BaseModel):
+    period: str
+    vendors: list[VendorPeriodAmount]
+    total: float
+
+
 class ReportDateRange(BaseModel):
     start_date: date
     end_date: date

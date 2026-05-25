@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SpendingPieChart } from "@/components/charts/SpendingPieChart";
 import { TrendLineChart } from "@/components/charts/TrendLineChart";
 import { BudgetVsActualBar } from "@/components/charts/BudgetVsActualBar";
@@ -9,7 +9,8 @@ import {
   CategoryOverTimeChart,
   extractCategoryMeta,
 } from "@/components/charts/CategoryOverTimeChart";
-import { VendorPieChart } from "@/components/charts/VendorPieChart";
+import { VendorPieChart, VENDOR_COLORS } from "@/components/charts/VendorPieChart";
+import { VendorOverTimeChart } from "@/components/charts/VendorOverTimeChart";
 import {
   useSpendingByCategory,
   useSpendingByCategoryOverTime,
@@ -18,6 +19,7 @@ import {
   useMonthlyComparison,
   useTopMerchants,
   useCategoryVendors,
+  useVendorSpendingOverTime,
 } from "@/hooks/useReports";
 import {
   groupSpendingByParent,
@@ -235,6 +237,7 @@ export function ReportsPage() {
   const [highlightedCategory, setHighlightedCategory] = useState<string | null>(null);
   const [drillDownCategory, setDrillDownCategory] = useState<SpendingByCategory | null>(null);
   const [activeCats, setActiveCats] = useState<string[]>([]);
+  const [activeVendors, setActiveVendors] = useState<string[]>([]);
 
   const { startDate, endDate } = useMemo(() => {
     if (preset === "custom" && customStart && customEnd) {
@@ -262,6 +265,14 @@ export function ReportsPage() {
     startDate,
     endDate,
   );
+  const { data: vendorOverTime, isLoading: loadingVendorOverTime } =
+    useVendorSpendingOverTime(
+      drillDownCategory?.category_id ?? undefined,
+      startDate,
+      endDate,
+      granularity,
+      10,
+    );
 
   const groupedSpending = useMemo(
     () => groupSpendingByParent(spendingByCategory ?? []),
@@ -276,6 +287,14 @@ export function ReportsPage() {
     () => extractCategoryMeta(categoryOverTime ?? []),
     [categoryOverTime],
   );
+
+  const vendorColorMap = useMemo(() => {
+    const map = new Map<string, string>();
+    (vendorData ?? []).forEach((v, i) => {
+      map.set(v.description, VENDOR_COLORS[i % VENDOR_COLORS.length]);
+    });
+    return map;
+  }, [vendorData]);
 
   const spendingGrid = useGridLayout("reports-spending-layout", SPENDING_LAYOUTS, SPENDING_PRESETS);
   const budgetsGrid = useGridLayout("reports-budgets-layout", BUDGETS_LAYOUTS, []);
@@ -353,6 +372,7 @@ export function ReportsPage() {
       </div>
 
       {activeTab === "spending" && (
+        <>
         <EditableGrid {...spendingGrid}>
           <GridCard key="over-time" editing={spendingGrid.editing}>
             <CardHeader>
@@ -456,7 +476,7 @@ export function ReportsPage() {
               <div className="flex items-center gap-2">
                 {isDrilling && (
                   <button
-                    onClick={() => setDrillDownCategory(null)}
+                    onClick={() => { setDrillDownCategory(null); setActiveVendors([]); }}
                     className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     aria-label="Back to all categories"
                   >
@@ -521,14 +541,26 @@ export function ReportsPage() {
                   loadingVendors ? (
                     <LoadingSpinner />
                   ) : (
-                    <VendorPieChart data={vendorData ?? []} />
+                    <VendorPieChart
+                      data={vendorData ?? []}
+                      activeVendors={activeVendors}
+                      onVendorToggle={(name) =>
+                        setActiveVendors((prev) => {
+                          if (prev.length === 0) return [name];
+                          if (prev.includes(name))
+                            return prev.filter((n) => n !== name);
+                          return [...prev, name];
+                        })
+                      }
+                      colorMap={vendorColorMap}
+                    />
                   )
                 ) : loadingCategory ? (
                   <LoadingSpinner />
                 ) : (
                   <SpendingPieChart
                     data={groupedSpending}
-                    onCategoryClick={(cat) => setDrillDownCategory(cat)}
+                    onCategoryClick={(cat) => { setDrillDownCategory(cat); setActiveVendors([]); }}
                     highlightedCategory={highlightedCategory}
                     onCategoryHover={setHighlightedCategory}
                   />
@@ -550,6 +582,92 @@ export function ReportsPage() {
             </CardContent>
           </GridCard>
         </EditableGrid>
+
+        {isDrilling && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    {drillDownCategory && (
+                      <span
+                        className="inline-block h-3 w-3 rounded-full"
+                        style={{ backgroundColor: drillDownCategory.category_color }}
+                      />
+                    )}
+                    <CardTitle className="text-base">
+                      {drillDownCategory?.category_name} — Vendor Spending Over Time
+                    </CardTitle>
+                  </div>
+                  <GranularityToggle granularity={granularity} onChange={setGranularity} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loadingVendorOverTime ? (
+                  <LoadingSpinner />
+                ) : (
+                  <>
+                    <VendorOverTimeChart
+                      data={vendorOverTime ?? []}
+                      granularity={granularity}
+                      colorMap={vendorColorMap}
+                      activeVendors={
+                        activeVendors.length > 0 ? activeVendors : undefined
+                      }
+                    />
+                    {vendorData && vendorData.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {vendorData.map((vendor) => {
+                          const isVendorActive =
+                            activeVendors.length === 0 ||
+                            activeVendors.includes(vendor.description);
+                          const color =
+                            vendorColorMap.get(vendor.description) ?? "#9ca3af";
+                          return (
+                            <button
+                              key={vendor.description}
+                              onClick={() =>
+                                setActiveVendors((prev) => {
+                                  if (prev.length === 0) return [vendor.description];
+                                  if (prev.includes(vendor.description))
+                                    return prev.filter((n) => n !== vendor.description);
+                                  return [...prev, vendor.description];
+                                })
+                              }
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium capitalize transition-all ${
+                                isVendorActive
+                                  ? "border-border bg-background text-foreground hover:bg-muted"
+                                  : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted/60"
+                              }`}
+                            >
+                              <span
+                                className="inline-block h-2 w-2 rounded-full transition-opacity"
+                                style={{
+                                  backgroundColor: color,
+                                  opacity: isVendorActive ? 1 : 0.3,
+                                }}
+                              />
+                              {vendor.description}
+                            </button>
+                          );
+                        })}
+                        {activeVendors.length > 0 && (
+                          <button
+                            onClick={() => setActiveVendors([])}
+                            className="ml-1 text-xs text-muted-foreground underline hover:text-foreground"
+                          >
+                            Show all
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+        </>
       )}
 
       {activeTab === "budgets" && (
