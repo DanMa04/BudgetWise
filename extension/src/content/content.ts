@@ -1,6 +1,6 @@
 import { detectCheckoutPage } from "./detector";
 import { parseCartTotal } from "./parser";
-import { createOverlay, removeOverlay, createBanner } from "./overlay";
+import { createOverlay, removeOverlay, createBanner, removeBanner } from "./overlay";
 import type { CartCheckResponse, ExtensionMessage } from "../shared/types";
 
 let isProcessing = false;
@@ -38,6 +38,8 @@ async function checkAndShowOverlay(): Promise<void> {
       createOverlay(response);
       if (response.warning_level === "red") {
         createBanner(response);
+      } else {
+        removeBanner();
       }
     }
   } catch (error) {
@@ -63,13 +65,19 @@ function debouncedCheck(): void {
 function setupMutationObserver(): void {
   if (observer) observer.disconnect();
 
+  const OUR_IDS = new Set(["kallio-overlay-host", "kallio-budget-banner"]);
+
   observer = new MutationObserver((mutations) => {
-    const hasRelevantChanges = mutations.some(
-      (m) =>
-        (m.type === "childList" && m.addedNodes.length > 0) ||
-        m.type === "characterData" ||
-        m.type === "attributes"
-    );
+    const hasRelevantChanges = mutations.some((m) => {
+      if (m.type === "childList") {
+        // Ignore mutations caused by our own elements being added/removed
+        for (const node of m.addedNodes) {
+          if (node instanceof Element && OUR_IDS.has(node.id)) return false;
+        }
+        return m.addedNodes.length > 0;
+      }
+      return m.type === "characterData" || m.type === "attributes";
+    });
     if (hasRelevantChanges) {
       removeOverlay();
       debouncedCheck();
