@@ -275,6 +275,7 @@ async def get_budget_vs_actual(
                 actual_amount=actual,
                 difference=round(difference, 2),
                 percentage_used=percentage_used,
+                period_type=budget.period_type,
             )
         )
 

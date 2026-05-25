@@ -34,14 +34,14 @@ export function Sidebar() {
     <aside
       className={cn(
         "hidden md:flex flex-col shrink-0 transition-all duration-300",
-        "bg-sidebar/70 backdrop-blur-xl border-r border-white/8",
+        "bg-sidebar/70 backdrop-blur-xl border-r border-border",
         isCollapsed ? "w-14" : "w-64",
       )}
     >
       {/* Logo */}
       <div
         className={cn(
-          "flex h-16 items-center border-b border-white/8 shrink-0",
+          "flex h-16 items-center border-b border-border shrink-0",
           isCollapsed ? "justify-center px-2" : "px-6",
         )}
       >
@@ -78,7 +78,7 @@ export function Sidebar() {
       </nav>
 
       {/* Collapse toggle */}
-      <div className="shrink-0 border-t border-white/8 p-2">
+      <div className="shrink-0 border-t border-border p-2">
         <button
           onClick={toggle}
           title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}

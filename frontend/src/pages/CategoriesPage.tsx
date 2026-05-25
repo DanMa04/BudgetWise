@@ -30,6 +30,7 @@ export function CategoriesPage() {
           <Button
             variant="outline"
             size="sm"
+            className="ai-rainbow"
             onClick={() => setShowAi(true)}
           >
             <Sparkles className="mr-1.5 h-4 w-4 text-violet-500" />

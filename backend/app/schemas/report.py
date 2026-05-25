@@ -35,6 +35,7 @@ class BudgetVsActual(BaseModel):
     actual_amount: float
     difference: float
     percentage_used: float
+    period_type: str = "monthly"
 
 
 class MonthlyComparison(BaseModel):

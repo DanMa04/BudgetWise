@@ -296,6 +296,37 @@ export function ReportsPage() {
     return map;
   }, [vendorData]);
 
+  const singleCategoryBudget = useMemo(() => {
+    if (activeCats.length !== 1 || !budgetVsActual?.length) return undefined;
+    const catName = activeCats[0];
+    const matching = budgetVsActual.filter(
+      (b) => b.category_name === catName || b.parent_category_name === catName,
+    );
+    if (!matching.length) return undefined;
+    const daysDiff = Math.max(
+      1,
+      (new Date(endDate).getTime() - new Date(startDate).getTime()) /
+        (1000 * 60 * 60 * 24),
+    );
+    return matching.reduce((sum, b) => {
+      let dailyRate: number;
+      switch (b.period_type) {
+        case "weekly":
+          dailyRate = b.budgeted_amount / 7;
+          break;
+        case "daily":
+          dailyRate = b.budgeted_amount;
+          break;
+        case "yearly":
+          dailyRate = b.budgeted_amount / 365;
+          break;
+        default:
+          dailyRate = b.budgeted_amount / 30.44;
+      }
+      return sum + dailyRate * daysDiff;
+    }, 0);
+  }, [activeCats, budgetVsActual, startDate, endDate]);
+
   const spendingGrid = useGridLayout("reports-spending-layout", SPENDING_LAYOUTS, SPENDING_PRESETS);
   const budgetsGrid = useGridLayout("reports-budgets-layout", BUDGETS_LAYOUTS, []);
   const incomeGrid = useGridLayout("reports-income-layout", INCOME_LAYOUTS, []);
@@ -416,6 +447,7 @@ export function ReportsPage() {
                     visibleCategories={
                       activeCats.length > 0 ? activeCats : undefined
                     }
+                    singleCategoryBudget={singleCategoryBudget}
                   />
                   {allCategoryMeta.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1.5">

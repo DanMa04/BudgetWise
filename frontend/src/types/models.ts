@@ -344,6 +344,7 @@ export interface BudgetVsActual {
   actual_amount: number;
   difference: number;
   percentage_used: number;
+  period_type: string;
 }
 
 export interface MonthlyComparison {

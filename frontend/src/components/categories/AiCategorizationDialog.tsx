@@ -219,7 +219,7 @@ export function AiCategorizationDialog({
               </Button>
               <Button
                 size="sm"
-                className="flex-1"
+                className="flex-1 ai-rainbow"
                 onClick={handleApply}
                 disabled={apply.isPending}
               >
