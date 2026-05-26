@@ -1,6 +1,5 @@
 import json
 import uuid
-from collections import Counter
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -88,7 +87,8 @@ MODE: Aggressive merging
 Analyze these transactions and consolidate categories into the fewest groups \
 that still provide meaningful spending insight. Merge similar or overlapping categories together.
 
-For example, merge "Groceries", "Supermarket", "Food & Drink" into a single "Food & Groceries" category.
+For example, merge "Groceries", "Supermarket", "Food & Drink" into a single \
+"Food & Groceries" category.
 
 Guidelines:
 - Aim for 10-15 total expense categories maximum
@@ -208,7 +208,6 @@ async def analyze_categories(
     proposal = json.loads(raw_text)
 
     # Build stats for the preview
-    existing_cat_names = {c.name.lower() for c in categories}
     proposed = proposal.get("proposed_categories", [])
     new_parents = []
     new_children = []
@@ -253,7 +252,6 @@ async def apply_proposal(
 
     # Build name -> new category id mapping
     name_to_id: dict[str, uuid.UUID] = {}
-    existing_ids: dict[str, uuid.UUID] = {}
 
     # Map existing category IDs
     categories = (
@@ -395,7 +393,9 @@ async def apply_proposal(
     await db.flush()
 
     return {
-        "categories_created": len([n for n in name_to_id if n not in {c.name.lower() for c in categories}]),
+        "categories_created": len(
+            [n for n in name_to_id if n not in {c.name.lower() for c in categories}]
+        ),
         "categories_updated": len(used_existing_ids),
         "categories_deleted": categories_deleted,
         "transactions_updated": txns_updated,

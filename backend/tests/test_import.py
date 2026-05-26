@@ -469,11 +469,9 @@ async def test_category_from_file(
     assert txn_map["Netflix"].category_id is not None
     assert txn_map["Netflix"].category_source == "import"
 
-    # Transportation was not created as a category, so it should be None
-    # (unless ML picks it up, but with no model it won't)
-    assert txn_map["Shell Gas"].category_source != "import" or txn_map[
-        "Shell Gas"
-    ].category_id is None
+    # Transportation is in the CSV but not pre-created — import service creates it
+    assert txn_map["Shell Gas"].category_id is not None
+    assert txn_map["Shell Gas"].category_source == "import"
 
 
 async def test_bank_presets_endpoint(

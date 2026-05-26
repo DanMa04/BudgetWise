@@ -18,7 +18,6 @@ from app.schemas.projection import (
     MultiDebtStrategyResponse,
 )
 from app.services.projection_service import (
-    RETURN_RATE_PRESETS,
     DebtInfo,
     compute_debt_comparison,
     compute_investment_projection,
@@ -60,7 +59,10 @@ async def get_multi_debt_strategy(
     ]
 
     if len(debt_accounts) < 2:
-        raise HTTPException(status_code=400, detail="Need at least 2 active debt accounts with balances for strategy comparison")
+        raise HTTPException(
+            status_code=400,
+            detail="Need at least 2 active debt accounts with balances for strategy comparison",
+        )
 
     debts = [
         DebtInfo(
@@ -89,7 +91,8 @@ async def get_multi_debt_strategy(
         goals = list(goals_result.scalars().all())
         min_by_account = {str(a.id): float(a.minimum_payment) for a in debt_accounts}
         extra_from_goals = sum(
-            max(0, float(g.planned_monthly_contribution) - min_by_account.get(str(g.linked_account_id), 0))
+            max(0, float(g.planned_monthly_contribution)
+                - min_by_account.get(str(g.linked_account_id), 0))
             for g in goals
             if g.planned_monthly_contribution
         )
@@ -158,7 +161,10 @@ async def get_debt_projection(
     min_pay = float(account.minimum_payment) if account.minimum_payment else 0.0
 
     if balance <= 0 or min_pay <= 0:
-        raise HTTPException(status_code=400, detail="Account needs balance and minimum payment for projections")
+        raise HTTPException(
+            status_code=400,
+            detail="Account needs balance and minimum payment for projections",
+        )
 
     comparison = compute_debt_comparison(balance, rate, min_pay, body.extra_payment)
 
@@ -215,7 +221,11 @@ async def get_investment_projection(
                 )
             )
         ).scalar_one_or_none()
-        contribution = float(goal.planned_monthly_contribution) if goal and goal.planned_monthly_contribution else 0.0
+        contribution = (
+            float(goal.planned_monthly_contribution)
+            if goal and goal.planned_monthly_contribution
+            else 0.0
+        )
 
     rows = compute_investment_projection(balance, contribution, annual_rate, 360)
 

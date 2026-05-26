@@ -3,8 +3,6 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
-
-logger = logging.getLogger(__name__)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -37,6 +35,8 @@ from app.routers import (
     transactions,
     transfer_rules,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager

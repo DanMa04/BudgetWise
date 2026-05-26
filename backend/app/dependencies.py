@@ -28,9 +28,12 @@ async def get_current_user(
 
     sub = payload.get("sub")
     if not sub:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token claims")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token claims"
+        )
 
-    email = payload.get("email", payload.get("email_addresses", [{}])[0].get("email_address", ""))
+    email_addrs = payload.get("email_addresses", [{}])
+    email = payload.get("email", email_addrs[0].get("email_address", ""))
     name = payload.get("name", payload.get("first_name", ""))
 
     user = await get_or_create_user(db, auth_provider_id=sub, email=email, display_name=name)
@@ -49,9 +52,12 @@ async def get_extension_user(
         payload = await verify_clerk_token(token)
         sub = payload.get("sub")
         if sub:
-            email = payload.get("email", payload.get("email_addresses", [{}])[0].get("email_address", ""))
+            email_addrs = payload.get("email_addresses", [{}])
+            email = payload.get("email", email_addrs[0].get("email_address", ""))
             name = payload.get("name", payload.get("first_name", ""))
-            return await get_or_create_user(db, auth_provider_id=sub, email=email, display_name=name)
+            return await get_or_create_user(
+                db, auth_provider_id=sub, email=email, display_name=name
+            )
     except Exception:
         pass
 
@@ -66,7 +72,9 @@ async def get_extension_user(
     )
     ext_token = result.scalar_one_or_none()
     if not ext_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
+        )
 
     ext_token.last_used_at = datetime.now(timezone.utc)
     await db.flush()

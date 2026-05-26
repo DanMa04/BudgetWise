@@ -1,7 +1,8 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import delete as sa_delete, select, update
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -19,13 +20,13 @@ from app.schemas.category import (
     MergeSuggestion,
     SubordinateCategoryRequest,
 )
+from app.services.categorization_service import repair_rule_priorities, seed_p2p_rules
 from app.services.category_merge_service import (
     get_categories_with_spend,
     get_merge_suggestions,
     merge_categories,
 )
 from app.services.category_service import ensure_p2p_categories, seed_default_categories
-from app.services.categorization_service import repair_rule_priorities, seed_p2p_rules
 from app.services.snapshot_service import create_snapshot
 
 router = APIRouter(prefix="/categories", tags=["categories"])
@@ -41,7 +42,9 @@ async def validate_parent_assignment(
     if not parent or parent.user_id != user_id:
         raise HTTPException(status_code=404, detail="Parent category not found")
     if parent.parent_id is not None:
-        raise HTTPException(status_code=400, detail="Cannot nest under a child category (2-level max)")
+        raise HTTPException(
+            status_code=400, detail="Cannot nest under a child category (2-level max)"
+        )
     if category_id and parent_id == category_id:
         raise HTTPException(status_code=400, detail="A category cannot be its own parent")
     if category_id:
@@ -245,6 +248,9 @@ async def delete_category(
     category = result.scalar_one_or_none()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
+
+    if category.is_system:
+        raise HTTPException(status_code=403, detail="Cannot delete system categories")
 
     if reassign_to:
         target = (

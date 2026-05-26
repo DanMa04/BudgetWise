@@ -1,5 +1,4 @@
 import uuid
-
 from decimal import Decimal
 
 from sqlalchemy import case, func, select
@@ -38,8 +37,12 @@ async def get_transactions(
         Transaction.user_id == user_id
     )
     sum_query = select(
-        func.coalesce(func.sum(case((Transaction.amount >= 0, Transaction.amount), else_=0)), 0).label("income_sum"),
-        func.coalesce(func.sum(case((Transaction.amount < 0, Transaction.amount), else_=0)), 0).label("expense_sum"),
+        func.coalesce(
+            func.sum(case((Transaction.amount >= 0, Transaction.amount), else_=0)), 0
+        ).label("income_sum"),
+        func.coalesce(
+            func.sum(case((Transaction.amount < 0, Transaction.amount), else_=0)), 0
+        ).label("expense_sum"),
     ).where(Transaction.user_id == user_id)
 
     if uncategorized_only:

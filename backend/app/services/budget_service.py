@@ -11,7 +11,6 @@ from app.models.category import Category
 from app.models.goal import Goal
 from app.models.transaction import Transaction
 from app.models.user import User
-from app.services.projection_service import resolve_return_rate
 from app.schemas.budget import (
     AllocationData,
     BudgetCreate,
@@ -24,6 +23,7 @@ from app.schemas.budget import (
     CategoryAllocation,
     GoalAllocation,
 )
+from app.services.projection_service import resolve_return_rate
 
 
 def get_current_period(budget: Budget) -> tuple[date, date]:
@@ -295,7 +295,9 @@ async def get_allocation_data(
             if linked_acct.account_type in ("loan", "credit"):
                 acct_rate = float(linked_acct.interest_rate) if linked_acct.interest_rate else None
             elif linked_acct.account_type == "investment":
-                resolved = resolve_return_rate(linked_acct.return_rate_preset, linked_acct.custom_return_rate)
+                resolved = resolve_return_rate(
+                    linked_acct.return_rate_preset, linked_acct.custom_return_rate
+                )
                 acct_rate = resolved if resolved > 0 else None
 
         goal_allocations.append(

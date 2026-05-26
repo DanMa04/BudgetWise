@@ -6,7 +6,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.database import Base, get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_extension_user
 from app.main import app
 from app.models.user import User
 
@@ -53,6 +53,7 @@ async def client(db_session: AsyncSession, test_user: User) -> AsyncGenerator[As
 
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_extension_user] = override_get_current_user
 
     db_session.add(test_user)
     await db_session.commit()

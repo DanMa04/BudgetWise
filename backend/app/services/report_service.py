@@ -8,7 +8,6 @@ from sqlalchemy.orm import aliased
 from app.models.budget import Budget
 from app.models.category import Category
 from app.models.transaction import Transaction
-
 from app.schemas.report import (
     BudgetVsActual,
     CategoryPeriodAmount,
@@ -19,10 +18,10 @@ from app.schemas.report import (
     SpendingByCategoryOverTime,
     SpendingTrend,
     TopMerchant,
-    VendorPeriodAmount,
-    VendorSpendingOverTime,
     VariableSpendDay,
     VariableSpendSummary,
+    VendorPeriodAmount,
+    VendorSpendingOverTime,
 )
 
 
@@ -32,7 +31,7 @@ async def get_spending_by_category(
     start_date: date,
     end_date: date,
 ) -> list[SpendingByCategory]:
-    ParentCategory = aliased(Category)
+    parent_category = aliased(Category)
 
     query = (
         select(
@@ -41,12 +40,12 @@ async def get_spending_by_category(
             func.coalesce(Category.color, "").label("color"),
             func.coalesce(Category.icon, "").label("icon"),
             Category.parent_id,
-            ParentCategory.name.label("parent_name"),
+            parent_category.name.label("parent_name"),
             func.sum(func.abs(Transaction.amount)).label("total_amount"),
             func.count(Transaction.id).label("transaction_count"),
         )
         .outerjoin(Category, Transaction.category_id == Category.id)
-        .outerjoin(ParentCategory, Category.parent_id == ParentCategory.id)
+        .outerjoin(parent_category, Category.parent_id == parent_category.id)
         .where(
             Transaction.user_id == user_id,
             Transaction.date >= start_date,
@@ -59,7 +58,7 @@ async def get_spending_by_category(
         )
         .group_by(
             Category.id, Category.name, Category.color, Category.icon,
-            Category.parent_id, ParentCategory.name,
+            Category.parent_id, parent_category.name,
         )
         .order_by(func.sum(func.abs(Transaction.amount)).desc())
     )
@@ -404,7 +403,7 @@ async def get_top_merchants(
 ) -> list[TopMerchant]:
     normalized = func.lower(func.trim(Transaction.description))
 
-    ParentCategory = aliased(Category)
+    parent_category = aliased(Category)
 
     query = (
         select(
@@ -413,7 +412,7 @@ async def get_top_merchants(
             func.count(Transaction.id).label("transaction_count"),
         )
         .outerjoin(Category, Transaction.category_id == Category.id)
-        .outerjoin(ParentCategory, Category.parent_id == ParentCategory.id)
+        .outerjoin(parent_category, Category.parent_id == parent_category.id)
         .where(
             Transaction.user_id == user_id,
             Transaction.date >= start_date,
@@ -429,8 +428,8 @@ async def get_top_merchants(
                 else_=~func.lower(Category.name).in_(_FIXED_RECURRING_CATEGORIES),
             ),
             case(
-                (ParentCategory.id.is_(None), True),
-                else_=~func.lower(ParentCategory.name).in_(
+                (parent_category.id.is_(None), True),
+                else_=~func.lower(parent_category.name).in_(
                     _FIXED_RECURRING_CATEGORIES
                 ),
             ),

@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.budget import Budget
@@ -52,7 +52,8 @@ async def merge_categories(
     )
     if source_children.scalars().first() and target.parent_id is not None:
         raise ValueError(
-            "Cannot merge: source has children and target is a child category (would exceed 2-level limit)"
+            "Cannot merge: source has children and target is a child category "
+            "(would exceed 2-level limit)"
         )
 
     # Move transactions
@@ -156,8 +157,6 @@ async def get_merge_suggestions(
     normalized = {
         cat.id: _normalize_category_name(cat.name) for cat in categories
     }
-    cat_by_id = {cat.id: cat for cat in categories}
-
     seen_pairs: set[tuple[uuid.UUID, uuid.UUID]] = set()
     suggestions: list[MergeSuggestion] = []
 
