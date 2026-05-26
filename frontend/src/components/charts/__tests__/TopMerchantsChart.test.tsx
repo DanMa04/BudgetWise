@@ -11,6 +11,7 @@ vi.mock("recharts", () => ({
     <svg data-testid="bar-chart">{children}</svg>
   ),
   Bar: () => <g data-testid="bar" />,
+  Cell: () => <g data-testid="cell" />,
   XAxis: () => <g data-testid="x-axis" />,
   YAxis: () => <g data-testid="y-axis" />,
   Tooltip: () => <g data-testid="tooltip" />,

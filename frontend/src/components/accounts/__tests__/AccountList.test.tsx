@@ -70,11 +70,9 @@ describe("AccountList", () => {
 
     renderWithProviders(<AccountList />);
     expect(
-      screen.getByRole("heading", { name: "Chase Bank" })
+      screen.getByRole("heading", { name: "Cash Accounts" })
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Manual Accounts" })
-    ).toBeInTheDocument();
+    expect(screen.getAllByText("Chase Bank").length).toBeGreaterThan(0);
     expect(screen.getByText("Checking")).toBeInTheDocument();
     expect(screen.getByText("Savings")).toBeInTheDocument();
     expect(screen.getByText("Cash")).toBeInTheDocument();

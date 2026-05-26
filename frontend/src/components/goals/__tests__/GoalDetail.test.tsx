@@ -3,6 +3,16 @@ import { screen } from "@testing-library/react";
 import { GoalDetail } from "../GoalDetail";
 import { renderWithProviders } from "@/test/test-utils";
 
+vi.mock("@clerk/clerk-react", () => ({
+  useAuth: () => ({
+    getToken: vi.fn().mockResolvedValue("test-token"),
+  }),
+}));
+
+vi.mock("@/hooks/useAccounts", () => ({
+  useAccounts: () => ({ data: [], isLoading: false }),
+}));
+
 vi.mock("@/hooks/useGoals", () => ({
   useGoal: () => ({
     data: {
@@ -39,6 +49,13 @@ vi.mock("@/hooks/useGoals", () => ({
       },
     ],
   }),
+  useUpdateGoal: () => ({ mutate: vi.fn(), isPending: false }),
+  useDeleteGoal: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
+vi.mock("@/hooks/useProjections", () => ({
+  useDebtProjection: () => ({ data: null, isLoading: false }),
+  useInvestmentProjection: () => ({ data: null, isLoading: false }),
 }));
 
 describe("GoalDetail", () => {

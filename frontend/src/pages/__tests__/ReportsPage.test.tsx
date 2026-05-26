@@ -10,10 +10,14 @@ vi.mock("@clerk/clerk-react", () => ({
 
 vi.mock("@/hooks/useReports", () => ({
   useSpendingByCategory: () => ({ data: [], isLoading: false }),
+  useSpendingByCategoryOverTime: () => ({ data: [], isLoading: false }),
   useSpendingTrends: () => ({ data: [], isLoading: false }),
   useBudgetVsActual: () => ({ data: [], isLoading: false }),
   useMonthlyComparison: () => ({ data: [], isLoading: false }),
+  useIncomeVsExpense: () => ({ data: [], isLoading: false }),
   useTopMerchants: () => ({ data: [], isLoading: false }),
+  useCategoryVendors: () => ({ data: [], isLoading: false }),
+  useVendorSpendingOverTime: () => ({ data: [], isLoading: false }),
 }));
 
 describe("ReportsPage", () => {
