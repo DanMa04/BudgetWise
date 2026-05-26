@@ -99,6 +99,7 @@ export function AddCategoryDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Coffee"
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- dialog input should receive focus on open
               autoFocus
             />
           </div>

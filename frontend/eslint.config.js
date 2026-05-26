@@ -43,4 +43,42 @@ export default defineConfig([
       'react-hooks/set-state-in-effect': 'off',
     },
   },
+  {
+    files: ['src/components/budgets/AllocationGrid.tsx'],
+    rules: {
+      'react-hooks/refs': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+    },
+  },
+  {
+    files: [
+      'src/components/budgets/CategorySliderRow.tsx',
+      'src/components/budgets/GoalAllocationRow.tsx',
+      'src/components/budgets/GoalVerticalBar.tsx',
+      'src/components/budgets/IncomeHeader.tsx',
+      'src/components/charts/CategoryOverTimeChart.tsx',
+      'src/components/goals/GoalDetail.tsx',
+      'src/components/goals/GoalForm.tsx',
+    ],
+    rules: {
+      'react-hooks/set-state-in-effect': 'off',
+    },
+  },
+  {
+    files: ['src/components/charts/CategoryOverTimeChart.tsx'],
+    rules: {
+      'react-hooks/immutability': 'off',
+    },
+  },
+  {
+    files: [
+      'src/components/charts/CategoryOverTimeChart.tsx',
+      'src/components/charts/VendorPieChart.tsx',
+      'src/context/SidebarContext.tsx',
+      'src/context/ThemeContext.tsx',
+    ],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

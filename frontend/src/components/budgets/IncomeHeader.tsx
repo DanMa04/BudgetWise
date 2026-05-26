@@ -58,6 +58,7 @@ export function IncomeHeader({
             <input
               type="number"
               min={0}
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- inline editor should focus when entered
               autoFocus
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}

@@ -272,10 +272,14 @@ export function CategoryDetailDialog({
 
                   {expandedTxn === txn.id && (
                     <div className="border-t px-2.5 py-2 bg-muted/30">
-                      <label className="text-xs text-muted-foreground">
+                      <label
+                        htmlFor={`recategorize-${txn.id}`}
+                        className="text-xs text-muted-foreground"
+                      >
                         Re-categorize to:
                       </label>
                       <select
+                        id={`recategorize-${txn.id}`}
                         className="mt-1 flex h-8 w-full rounded-md border border-input bg-transparent px-2 text-sm"
                         defaultValue=""
                         onChange={(e) => {

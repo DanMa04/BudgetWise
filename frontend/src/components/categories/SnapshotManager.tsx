@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { History, Save, Undo2, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { History, Save, Undo2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

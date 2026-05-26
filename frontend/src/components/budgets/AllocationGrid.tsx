@@ -309,6 +309,7 @@ function GroupAllocationBar({
           const isEditing = editingChildId === seg.item.id;
 
           return (
+            // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- inline budget segment editor; keyboard access handled by the input below
             <div
               key={seg.item.id}
               className="relative h-full transition-all duration-100 first:rounded-l-md last:rounded-r-md cursor-pointer"
@@ -360,6 +361,7 @@ function GroupAllocationBar({
 
               {/* Inline edit input */}
               {isEditing && (
+                // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- wrapper only stops click bubbling; nested input handles keyboard
                 <div
                   className="absolute -top-12 left-1/2 z-40 -translate-x-1/2"
                   onClick={(e) => e.stopPropagation()}
@@ -408,6 +410,7 @@ function GroupAllocationBar({
               drag?.handleIndex === i;
 
             return (
+              // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- drag handle is pointer-only (resize between segments); equivalent keyboard editing is via the inline input
               <div
                 key={`h-${i}`}
                 className="absolute top-0 z-20 flex h-full w-5 -translate-x-1/2 items-center justify-center"

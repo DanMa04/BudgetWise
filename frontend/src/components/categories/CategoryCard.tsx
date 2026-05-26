@@ -19,7 +19,7 @@ interface CategoryCardProps {
   isDropTarget?: boolean;
   onDelete?: (category: CategoryWithSpend) => void;
   style?: React.CSSProperties;
-  listeners?: Record<string, Function>;
+  listeners?: Record<string, (...args: unknown[]) => unknown>;
   attributes?: Record<string, unknown>;
 }
 

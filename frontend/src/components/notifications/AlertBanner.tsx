@@ -40,7 +40,9 @@ export function AlertBanner() {
       const next = new Set(prev).add(id);
       try {
         sessionStorage.setItem("kallio_dismissed_alerts", JSON.stringify([...next]));
-      } catch {}
+      } catch {
+        // sessionStorage may be unavailable (e.g. private browsing); ignore.
+      }
       return next;
     });
   }

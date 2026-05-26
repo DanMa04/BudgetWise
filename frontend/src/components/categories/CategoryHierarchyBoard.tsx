@@ -139,7 +139,15 @@ function DraggableDroppableCard({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={() => onTap(category)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onTap(category);
+        }
+      }}
       style={{ opacity: isDragging ? 0.4 : 1 }}
     >
       <CategoryCard

@@ -133,8 +133,13 @@ export function DeleteCategoryDialog({
                   </div>
                 </label>
 
-                <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors has-[:checked]:border-destructive has-[:checked]:bg-destructive/5">
+                <label
+                  htmlFor="delete-action-delete"
+                  aria-label="Delete all transactions"
+                  className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors has-[:checked]:border-destructive has-[:checked]:bg-destructive/5"
+                >
                   <input
+                    id="delete-action-delete"
                     type="radio"
                     name="delete-action"
                     value="delete"
