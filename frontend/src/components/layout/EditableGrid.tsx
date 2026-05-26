@@ -60,6 +60,7 @@ export function EditableGrid({
             }}
             resizeConfig={{
               enabled: editing,
+              handles: ["s", "e", "se"],
             }}
             onLayoutChange={onLayoutChange}
             margin={[16, 16] as const}

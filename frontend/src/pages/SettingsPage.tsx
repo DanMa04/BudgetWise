@@ -1,4 +1,5 @@
 import { NotificationPreferences } from "@/components/notifications/NotificationPreferences";
+import { AccountManagement } from "@/components/settings/AccountManagement";
 import { Switch } from "@/components/ui/switch";
 import { useTheme } from "@/context/ThemeContext";
 import { useExtensionConnection } from "@/hooks/useExtensionConnection";
@@ -103,6 +104,14 @@ export function SettingsPage() {
       <ExtensionCard />
 
       <NotificationPreferences />
+
+      <AccountManagement />
+
+      <p className="text-center text-xs text-muted-foreground pb-2">
+        <a href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+          Privacy Policy
+        </a>
+      </p>
     </div>
   );
 }

@@ -40,6 +40,12 @@ Guidelines:
 - Propose new parent categories only if truly needed
 - Every transaction must be assigned to exactly one category (child if available, parent if not)
 - Preserve income categories as-is
+- Set is_fixed=true for categories that are recurring, predictable, non-discretionary expenses: \
+rent/mortgage, utilities (electric, gas, water, internet, phone), insurance premiums, \
+loan/car/debt payments, and subscriptions with a fixed monthly fee. \
+Set is_fixed=false for discretionary variable spending (groceries, dining, entertainment, \
+shopping, travel, personal care, etc.). Categories already marked [FIXED] in the list \
+below should remain fixed unless there is a clear reason to change them.
 
 Existing categories:
 {categories}
@@ -55,11 +61,13 @@ Respond with this JSON structure:
       "existing_id": "uuid-if-exists-or-null",
       "color": "#hex-color",
       "is_income": false,
+      "is_fixed": false,
       "children": [
         {{
           "name": "Subcategory Name",
           "existing_id": "uuid-if-exists-or-null",
-          "color": "#hex-color"
+          "color": "#hex-color",
+          "is_fixed": false
         }}
       ]
     }}
@@ -90,6 +98,12 @@ Guidelines:
 - Every transaction must be assigned to exactly one category
 - Preserve income categories as-is
 - Preserve system categories as-is
+- Set is_fixed=true for categories that are recurring, predictable, non-discretionary expenses: \
+rent/mortgage, utilities (electric, gas, water, internet, phone), insurance premiums, \
+loan/car/debt payments, and subscriptions with a fixed monthly fee. \
+Set is_fixed=false for discretionary variable spending (groceries, dining, entertainment, \
+shopping, travel, personal care, etc.). Categories already marked [FIXED] in the list \
+below should remain fixed unless they are being merged into a clearly variable category.
 
 Existing categories:
 {categories}
@@ -105,6 +119,7 @@ Respond with this JSON structure:
       "existing_id": "uuid-of-primary-category-or-null",
       "color": "#hex-color",
       "is_income": false,
+      "is_fixed": false,
       "merged_from": ["list", "of", "original", "category", "names"],
       "children": []
     }}
@@ -153,8 +168,9 @@ async def analyze_categories(
             parent_note = f" (child of {parent.name})" if parent else ""
         income_note = " [INCOME]" if c.is_income else ""
         system_note = " [SYSTEM]" if c.is_system else ""
+        fixed_note = " [FIXED]" if c.is_fixed else ""
         cat_lines.append(
-            f"- {c.name} (id: {c.id}){parent_note}{income_note}{system_note}"
+            f"- {c.name} (id: {c.id}){parent_note}{income_note}{system_note}{fixed_note}"
         )
     categories_text = "\n".join(cat_lines) if cat_lines else "(no existing categories)"
 
@@ -263,6 +279,8 @@ async def apply_proposal(
             if p.get("color"):
                 cat.color = p["color"]
             cat.is_income = p.get("is_income", False)
+            if "is_fixed" in p:
+                cat.is_fixed = p["is_fixed"]
             name_to_id[p["name"].lower()] = cat.id
             used_existing_ids.add(existing_id)
         else:
@@ -270,6 +288,8 @@ async def apply_proposal(
             if existing:
                 if p.get("color"):
                     existing.color = p["color"]
+                if "is_fixed" in p:
+                    existing.is_fixed = p["is_fixed"]
                 name_to_id[p["name"].lower()] = existing.id
                 used_existing_ids.add(str(existing.id))
             else:
@@ -278,6 +298,7 @@ async def apply_proposal(
                     name=p["name"],
                     color=p.get("color"),
                     is_income=p.get("is_income", False),
+                    is_fixed=p.get("is_fixed", False),
                 )
                 db.add(new_cat)
                 await db.flush()
@@ -294,6 +315,8 @@ async def apply_proposal(
                 cat.parent_id = parent_id
                 if child.get("color"):
                     cat.color = child["color"]
+                if "is_fixed" in child:
+                    cat.is_fixed = child["is_fixed"]
                 name_to_id[child["name"].lower()] = cat.id
                 used_existing_ids.add(existing_id)
             else:
@@ -302,6 +325,8 @@ async def apply_proposal(
                     existing.parent_id = parent_id
                     if child.get("color"):
                         existing.color = child["color"]
+                    if "is_fixed" in child:
+                        existing.is_fixed = child["is_fixed"]
                     name_to_id[child["name"].lower()] = existing.id
                     used_existing_ids.add(str(existing.id))
                 else:
@@ -310,6 +335,7 @@ async def apply_proposal(
                         name=child["name"],
                         color=child.get("color"),
                         parent_id=parent_id,
+                        is_fixed=child.get("is_fixed", False),
                     )
                     db.add(new_child)
                     await db.flush()

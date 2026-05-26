@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, timedelta
 
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -21,6 +21,8 @@ from app.schemas.report import (
     TopMerchant,
     VendorPeriodAmount,
     VendorSpendingOverTime,
+    VariableSpendDay,
+    VariableSpendSummary,
 )
 
 
@@ -591,3 +593,102 @@ async def get_vendor_spending_over_time(
         )
         for period in sorted(grouped.keys())
     ]
+
+
+async def get_variable_spend_savings(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    start_date: date,
+    end_date: date,
+) -> VariableSpendSummary:
+    # 90-day baseline: the period immediately before start_date
+    baseline_end = start_date - timedelta(days=1)
+    baseline_start = baseline_end - timedelta(days=89)
+
+    def _variable_expense_filter():
+        return [
+            Transaction.amount < 0,
+            case(
+                (Category.id.is_(None), True),
+                else_=and_(
+                    Category.is_income.is_(False),
+                    Category.is_fixed.is_(False),
+                ),
+            ),
+        ]
+
+    baseline_result = await db.execute(
+        select(func.coalesce(func.sum(func.abs(Transaction.amount)), 0).label("total"))
+        .outerjoin(Category, Transaction.category_id == Category.id)
+        .where(
+            Transaction.user_id == user_id,
+            Transaction.date >= baseline_start,
+            Transaction.date <= baseline_end,
+            *_variable_expense_filter(),
+        )
+    )
+    baseline_total = float(baseline_result.scalar() or 0)
+    avg_daily = baseline_total / 90.0
+
+    budget_result = await db.execute(
+        select(func.coalesce(func.sum(Budget.amount), 0).label("total"))
+        .join(Category, Budget.category_id == Category.id)
+        .where(
+            Budget.user_id == user_id,
+            Category.is_fixed.is_(False),
+            Category.is_income.is_(False),
+        )
+    )
+    variable_budget_total = float(budget_result.scalar() or 0)
+    budget_daily = variable_budget_total / 30.0
+
+    daily_result = await db.execute(
+        select(
+            Transaction.date.label("txn_date"),
+            func.sum(func.abs(Transaction.amount)).label("amount"),
+        )
+        .outerjoin(Category, Transaction.category_id == Category.id)
+        .where(
+            Transaction.user_id == user_id,
+            Transaction.date >= start_date,
+            Transaction.date <= end_date,
+            *_variable_expense_filter(),
+        )
+        .group_by(Transaction.date)
+        .order_by(Transaction.date)
+    )
+    daily_map = {row.txn_date: float(row.amount) for row in daily_result.all()}
+
+    days: list[VariableSpendDay] = []
+    cumulative_savings = 0.0
+    cumulative_budget_savings = 0.0
+    total_actual = 0.0
+
+    current = start_date
+    while current <= end_date:
+        actual = daily_map.get(current, 0.0)
+        total_actual += actual
+        cumulative_savings += avg_daily - actual
+        cumulative_budget_savings += budget_daily - actual
+        days.append(
+            VariableSpendDay(
+                date=current.isoformat(),
+                actual=round(actual, 2),
+                avg_daily=round(avg_daily, 2),
+                budget_daily=round(budget_daily, 2),
+                cumulative_savings=round(cumulative_savings, 2),
+                cumulative_budget_savings=round(cumulative_budget_savings, 2),
+            )
+        )
+        current += timedelta(days=1)
+
+    return VariableSpendSummary(
+        days=days,
+        avg_daily_baseline=round(avg_daily, 2),
+        budget_daily_target=round(budget_daily, 2),
+        total_variable_budget=round(variable_budget_total, 2),
+        total_actual=round(total_actual, 2),
+        total_savings_vs_baseline=round(cumulative_savings, 2),
+        total_savings_vs_budget=round(cumulative_budget_savings, 2),
+        has_baseline_data=baseline_total > 0,
+    )

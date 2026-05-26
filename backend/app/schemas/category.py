@@ -13,6 +13,7 @@ class CategoryRead(BaseModel):
     color: str | None
     is_system: bool
     is_income: bool
+    is_fixed: bool
     sort_order: int
     created_at: datetime
 
@@ -34,6 +35,7 @@ class CategoryUpdate(BaseModel):
     icon: str | None = None
     color: str | None = None
     is_income: bool | None = None
+    is_fixed: bool | None = None
     sort_order: int | None = None
 
 

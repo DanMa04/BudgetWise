@@ -7,6 +7,7 @@ import { BudgetCard } from "@/components/budgets/BudgetCard";
 import { SpendingPieChart } from "@/components/charts/SpendingPieChart";
 import { TrendLineChart } from "@/components/charts/TrendLineChart";
 import { TopMerchantsChart } from "@/components/charts/TopMerchantsChart";
+import { VariableSpendChart } from "@/components/charts/VariableSpendChart";
 import { useBudgetSummary } from "@/hooks/useBudgets";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useAccounts } from "@/hooks/useAccounts";
@@ -16,6 +17,7 @@ import {
   useSpendingByCategory,
   useSpendingTrends,
   useTopMerchants,
+  useVariableSpendSavings,
 } from "@/hooks/useReports";
 import { formatCurrency } from "@/lib/formatters";
 import { groupSpendingByParent } from "@/lib/categoryGrouping";
@@ -44,10 +46,11 @@ const DEFAULT_LAYOUTS: ResponsiveLayouts = {
     { i: "accounts", x: 0, y: 5, w: 12, h: 7, minW: 4, minH: 5 },
     { i: "pie", x: 0, y: 12, w: 6, h: 11, minW: 4, minH: 8 },
     { i: "trend", x: 6, y: 12, w: 6, h: 11, minW: 4, minH: 8 },
-    { i: "budgets", x: 0, y: 23, w: 6, h: 11, minW: 4, minH: 6 },
-    { i: "merchants", x: 6, y: 23, w: 6, h: 11, minW: 4, minH: 6 },
-    { i: "goals", x: 0, y: 34, w: 12, h: 8, minW: 4, minH: 5 },
-    { i: "transactions", x: 0, y: 42, w: 12, h: 10, minW: 6, minH: 6 },
+    { i: "vsavings", x: 0, y: 23, w: 12, h: 13, minW: 5, minH: 10 },
+    { i: "budgets", x: 0, y: 36, w: 6, h: 11, minW: 4, minH: 6 },
+    { i: "merchants", x: 6, y: 36, w: 6, h: 11, minW: 4, minH: 6 },
+    { i: "goals", x: 0, y: 47, w: 12, h: 8, minW: 4, minH: 5 },
+    { i: "transactions", x: 0, y: 55, w: 12, h: 10, minW: 6, minH: 6 },
   ],
   md: [
     { i: "budgeted", x: 0, y: 0, w: 3, h: 5, minW: 2, minH: 4 },
@@ -57,10 +60,11 @@ const DEFAULT_LAYOUTS: ResponsiveLayouts = {
     { i: "accounts", x: 0, y: 5, w: 12, h: 7, minW: 4, minH: 5 },
     { i: "pie", x: 0, y: 12, w: 6, h: 11, minW: 4, minH: 8 },
     { i: "trend", x: 6, y: 12, w: 6, h: 11, minW: 4, minH: 8 },
-    { i: "budgets", x: 0, y: 23, w: 6, h: 11, minW: 4, minH: 6 },
-    { i: "merchants", x: 6, y: 23, w: 6, h: 11, minW: 4, minH: 6 },
-    { i: "goals", x: 0, y: 34, w: 12, h: 8, minW: 4, minH: 5 },
-    { i: "transactions", x: 0, y: 42, w: 12, h: 10, minW: 6, minH: 6 },
+    { i: "vsavings", x: 0, y: 23, w: 12, h: 13, minW: 5, minH: 10 },
+    { i: "budgets", x: 0, y: 36, w: 6, h: 11, minW: 4, minH: 6 },
+    { i: "merchants", x: 6, y: 36, w: 6, h: 11, minW: 4, minH: 6 },
+    { i: "goals", x: 0, y: 47, w: 12, h: 8, minW: 4, minH: 5 },
+    { i: "transactions", x: 0, y: 55, w: 12, h: 10, minW: 6, minH: 6 },
   ],
   sm: [
     { i: "budgeted", x: 0, y: 0, w: 3, h: 5, minW: 2, minH: 4 },
@@ -70,10 +74,11 @@ const DEFAULT_LAYOUTS: ResponsiveLayouts = {
     { i: "accounts", x: 0, y: 10, w: 6, h: 7, minW: 3, minH: 5 },
     { i: "pie", x: 0, y: 17, w: 6, h: 11, minW: 3, minH: 8 },
     { i: "trend", x: 0, y: 28, w: 6, h: 11, minW: 3, minH: 8 },
-    { i: "budgets", x: 0, y: 39, w: 6, h: 11, minW: 3, minH: 6 },
-    { i: "merchants", x: 0, y: 50, w: 6, h: 11, minW: 3, minH: 6 },
-    { i: "goals", x: 0, y: 61, w: 6, h: 8, minW: 3, minH: 5 },
-    { i: "transactions", x: 0, y: 69, w: 6, h: 10, minW: 3, minH: 6 },
+    { i: "vsavings", x: 0, y: 39, w: 6, h: 13, minW: 3, minH: 10 },
+    { i: "budgets", x: 0, y: 52, w: 6, h: 11, minW: 3, minH: 6 },
+    { i: "merchants", x: 0, y: 63, w: 6, h: 11, minW: 3, minH: 6 },
+    { i: "goals", x: 0, y: 74, w: 6, h: 8, minW: 3, minH: 5 },
+    { i: "transactions", x: 0, y: 82, w: 6, h: 10, minW: 3, minH: 6 },
   ],
   xs: [
     { i: "budgeted", x: 0, y: 0, w: 1, h: 5, minH: 4 },
@@ -83,10 +88,11 @@ const DEFAULT_LAYOUTS: ResponsiveLayouts = {
     { i: "accounts", x: 0, y: 20, w: 1, h: 7, minH: 5 },
     { i: "pie", x: 0, y: 27, w: 1, h: 11, minH: 8 },
     { i: "trend", x: 0, y: 38, w: 1, h: 11, minH: 8 },
-    { i: "budgets", x: 0, y: 49, w: 1, h: 11, minH: 6 },
-    { i: "merchants", x: 0, y: 60, w: 1, h: 11, minH: 6 },
-    { i: "goals", x: 0, y: 71, w: 1, h: 8, minH: 5 },
-    { i: "transactions", x: 0, y: 79, w: 1, h: 10, minH: 6 },
+    { i: "vsavings", x: 0, y: 49, w: 1, h: 13, minH: 10 },
+    { i: "budgets", x: 0, y: 62, w: 1, h: 11, minH: 6 },
+    { i: "merchants", x: 0, y: 73, w: 1, h: 11, minH: 6 },
+    { i: "goals", x: 0, y: 84, w: 1, h: 8, minH: 5 },
+    { i: "transactions", x: 0, y: 92, w: 1, h: 10, minH: 6 },
   ],
 };
 
@@ -103,15 +109,16 @@ const PRESETS: LayoutPreset[] = [
       lg: [
         { i: "pie", x: 0, y: 0, w: 6, h: 11, minW: 4, minH: 8 },
         { i: "trend", x: 6, y: 0, w: 6, h: 11, minW: 4, minH: 8 },
-        { i: "budgeted", x: 0, y: 11, w: 3, h: 5, minW: 2, minH: 4 },
-        { i: "spent", x: 3, y: 11, w: 3, h: 5, minW: 2, minH: 4 },
-        { i: "remaining", x: 6, y: 11, w: 3, h: 5, minW: 2, minH: 4 },
-        { i: "health", x: 9, y: 11, w: 3, h: 5, minW: 2, minH: 4 },
-        { i: "budgets", x: 0, y: 16, w: 6, h: 11, minW: 4, minH: 6 },
-        { i: "merchants", x: 6, y: 16, w: 6, h: 11, minW: 4, minH: 6 },
-        { i: "accounts", x: 0, y: 27, w: 6, h: 7, minW: 4, minH: 5 },
-        { i: "goals", x: 6, y: 27, w: 6, h: 7, minW: 4, minH: 5 },
-        { i: "transactions", x: 0, y: 34, w: 12, h: 10, minW: 6, minH: 6 },
+        { i: "vsavings", x: 0, y: 11, w: 12, h: 13, minW: 5, minH: 10 },
+        { i: "budgeted", x: 0, y: 24, w: 3, h: 5, minW: 2, minH: 4 },
+        { i: "spent", x: 3, y: 24, w: 3, h: 5, minW: 2, minH: 4 },
+        { i: "remaining", x: 6, y: 24, w: 3, h: 5, minW: 2, minH: 4 },
+        { i: "health", x: 9, y: 24, w: 3, h: 5, minW: 2, minH: 4 },
+        { i: "budgets", x: 0, y: 29, w: 6, h: 11, minW: 4, minH: 6 },
+        { i: "merchants", x: 6, y: 29, w: 6, h: 11, minW: 4, minH: 6 },
+        { i: "accounts", x: 0, y: 40, w: 6, h: 7, minW: 4, minH: 5 },
+        { i: "goals", x: 6, y: 40, w: 6, h: 7, minW: 4, minH: 5 },
+        { i: "transactions", x: 0, y: 47, w: 12, h: 10, minW: 6, minH: 6 },
       ],
       md: DEFAULT_LAYOUTS.md,
       sm: DEFAULT_LAYOUTS.sm,
@@ -130,10 +137,11 @@ const PRESETS: LayoutPreset[] = [
         { i: "pie", x: 0, y: 5, w: 4, h: 11, minW: 4, minH: 8 },
         { i: "trend", x: 4, y: 5, w: 4, h: 11, minW: 4, minH: 8 },
         { i: "merchants", x: 8, y: 5, w: 4, h: 11, minW: 4, minH: 6 },
-        { i: "accounts", x: 0, y: 16, w: 4, h: 7, minW: 4, minH: 5 },
-        { i: "budgets", x: 4, y: 16, w: 4, h: 7, minW: 4, minH: 6 },
-        { i: "goals", x: 8, y: 16, w: 4, h: 7, minW: 4, minH: 5 },
-        { i: "transactions", x: 0, y: 23, w: 12, h: 10, minW: 6, minH: 6 },
+        { i: "vsavings", x: 0, y: 16, w: 12, h: 13, minW: 5, minH: 10 },
+        { i: "accounts", x: 0, y: 29, w: 4, h: 7, minW: 4, minH: 5 },
+        { i: "budgets", x: 4, y: 29, w: 4, h: 7, minW: 4, minH: 6 },
+        { i: "goals", x: 8, y: 29, w: 4, h: 7, minW: 4, minH: 5 },
+        { i: "transactions", x: 0, y: 36, w: 12, h: 10, minW: 6, minH: 6 },
       ],
       md: DEFAULT_LAYOUTS.md,
       sm: DEFAULT_LAYOUTS.sm,
@@ -156,6 +164,7 @@ export function DashboardPage() {
   const { data: spendingByCategory } = useSpendingByCategory(startDate, endDate);
   const { data: spendingTrends } = useSpendingTrends(startDate, endDate, "daily");
   const { data: topMerchants } = useTopMerchants(startDate, endDate, 5);
+  const { data: variableSpend } = useVariableSpendSavings(startDate, endDate);
   const { data: accounts } = useAccounts();
   const { data: goals } = useGoals();
 
@@ -321,6 +330,21 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             <TrendLineChart data={spendingTrends ?? []} granularity="daily" />
+          </CardContent>
+        </GridCard>
+
+        <GridCard key="vsavings" editing={grid.editing}>
+          <CardHeader>
+            <CardTitle className="text-base">Variable Spend Savings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {variableSpend ? (
+              <VariableSpendChart data={variableSpend} />
+            ) : (
+              <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
+                Loading…
+              </div>
+            )}
           </CardContent>
         </GridCard>
 

@@ -1,4 +1,4 @@
-import { lazy } from "react";
+import { lazy, Suspense } from "react";
 import { createBrowserRouter } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 
@@ -36,8 +36,19 @@ const CategoriesPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })),
 );
+const PrivacyPage = lazy(() =>
+  import("@/pages/PrivacyPage").then((m) => ({ default: m.PrivacyPage })),
+);
 
 export const router = createBrowserRouter([
+  {
+    path: "privacy",
+    element: (
+      <Suspense fallback={null}>
+        <PrivacyPage />
+      </Suspense>
+    ),
+  },
   {
     element: <AppShell />,
     children: [

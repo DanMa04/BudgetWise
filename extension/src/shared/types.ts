@@ -45,7 +45,8 @@ export type MessageType =
   | "UPDATE_SETTINGS"
   | "SET_AUTH_TOKEN"
   | "GET_AUTH_STATUS"
-  | "PING";
+  | "PING"
+  | "RECHECK";
 
 export interface ExtensionMessage {
   type: MessageType;

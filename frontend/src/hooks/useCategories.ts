@@ -6,6 +6,7 @@ import {
   getMergeSuggestions,
   mergeCategories,
   createCategory,
+  updateCategory,
   deleteCategory,
   subordinateCategory,
   unsubordinateCategory,
@@ -184,6 +185,23 @@ export function useResetGroups() {
       for (const key of CATEGORY_INVALIDATION_KEYS) {
         queryClient.invalidateQueries({ queryKey: key });
       }
+    },
+  });
+}
+
+export function useUpdateCategory() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<CreateCategoryData> }) => {
+      const token = await getToken();
+      if (!token) throw new Error("Not authenticated");
+      return updateCategory(id, data, token);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["categories-with-spend"] });
     },
   });
 }

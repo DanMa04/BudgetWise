@@ -4,6 +4,14 @@ import { formatCurrency } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { CategoryWithSpend } from "@/types/models";
 
+function getDeterministicColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  }
+  return `oklch(0.65 0.14 ${hash % 360})`;
+}
+
 interface CategoryCardProps {
   category: CategoryWithSpend;
   isSelected?: boolean;
@@ -29,7 +37,7 @@ export const CategoryCard = forwardRef<HTMLDivElement, CategoryCardProps>(
     },
     ref,
   ) {
-    const color = category.color || "#6b7280";
+    const color = category.color || getDeterministicColor(category.id);
 
     return (
       <div
@@ -38,11 +46,11 @@ export const CategoryCard = forwardRef<HTMLDivElement, CategoryCardProps>(
         {...listeners}
         {...attributes}
         className={cn(
-          "group relative flex min-h-[80px] cursor-grab flex-col justify-between rounded-lg border p-3 transition-all duration-150 active:cursor-grabbing",
-          isOverlay && "shadow-xl opacity-90 scale-[1.02]",
-          isDropTarget &&
-            "ring-2 ring-primary ring-offset-2 scale-[1.03] bg-primary/5",
-          isSelected && "ring-2 ring-blue-500 ring-offset-2",
+          "group relative flex min-h-[80px] cursor-grab flex-col justify-between rounded-lg border border-transparent p-3 transition-all duration-150 active:cursor-grabbing",
+          "hover:border-border active:border-border",
+          isOverlay && "border-border shadow-xl opacity-90 scale-[1.02]",
+          isDropTarget && "ring-2 ring-primary scale-[1.03] bg-primary/5",
+          isSelected && "ring-2 ring-blue-500",
           !isOverlay && !isDropTarget && !isSelected && "hover:shadow-md",
           category.is_system && "opacity-80",
         )}
@@ -72,6 +80,11 @@ export const CategoryCard = forwardRef<HTMLDivElement, CategoryCardProps>(
           </span>
           {category.is_system && (
             <Shield className="h-3 w-3 shrink-0 text-muted-foreground" />
+          )}
+          {category.is_fixed && (
+            <span className="rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 leading-none">
+              Fixed
+            </span>
           )}
         </div>
 

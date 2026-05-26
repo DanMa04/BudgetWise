@@ -105,6 +105,7 @@ export interface Category {
   color: string | null;
   is_system: boolean;
   is_income: boolean;
+  is_fixed: boolean;
   sort_order: number;
   created_at: string;
 }
@@ -251,6 +252,7 @@ export interface CreateCategoryData {
   icon?: string;
   color?: string;
   is_income?: boolean;
+  is_fixed?: boolean;
   sort_order?: number;
 }
 
@@ -383,6 +385,26 @@ export interface VendorSpendingOverTime {
   period: string;
   vendors: VendorPeriodAmount[];
   total: number;
+}
+
+export interface VariableSpendDay {
+  date: string;
+  actual: number;
+  avg_daily: number;
+  budget_daily: number;
+  cumulative_savings: number;
+  cumulative_budget_savings: number;
+}
+
+export interface VariableSpendSummary {
+  days: VariableSpendDay[];
+  avg_daily_baseline: number;
+  budget_daily_target: number;
+  total_variable_budget: number;
+  total_actual: number;
+  total_savings_vs_baseline: number;
+  total_savings_vs_budget: number;
+  has_baseline_data: boolean;
 }
 
 export interface CategorizationRule {

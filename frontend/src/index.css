@@ -266,8 +266,75 @@
   border-radius: var(--radius);
 }
 
-.react-grid-item > .react-resizable-handle::after {
-  border-color: oklch(0.556 0 0 / 50%) !important;
+/* Hide resize handles outside edit mode */
+.react-grid-item > .react-resizable-handle {
+  opacity: 0;
+  transition: opacity 0.15s;
+  background-image: none !important;
+  z-index: 10;
+}
+.editable-grid-active .react-grid-item > .react-resizable-handle {
+  opacity: 1;
+}
+
+/* SE corner — L-shaped bracket grip */
+.react-resizable-handle-se {
+  width: 18px !important;
+  height: 18px !important;
+  cursor: se-resize;
+}
+.react-resizable-handle-se::after {
+  content: "" !important;
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 9px;
+  height: 9px;
+  border-right: 2.5px solid var(--primary) !important;
+  border-bottom: 2.5px solid var(--primary) !important;
+  border-radius: 0 0 2px 0;
+}
+
+/* S bottom edge — horizontal pill */
+.react-resizable-handle-s {
+  width: 48px !important;
+  height: 12px !important;
+  left: calc(50% - 24px) !important;
+  bottom: 2px !important;
+  cursor: s-resize;
+}
+.react-resizable-handle-s::after {
+  content: "" !important;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 36px;
+  height: 3px;
+  background: var(--muted-foreground);
+  opacity: 0.45;
+  border-radius: 99px;
+}
+
+/* E right edge — vertical pill */
+.react-resizable-handle-e {
+  width: 12px !important;
+  height: 48px !important;
+  right: 2px !important;
+  top: calc(50% - 24px) !important;
+  cursor: e-resize;
+}
+.react-resizable-handle-e::after {
+  content: "" !important;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 3px;
+  height: 36px;
+  background: var(--muted-foreground);
+  opacity: 0.45;
+  border-radius: 99px;
 }
 
 /* ---- AI feature button — subtle cycling rainbow ring ---------------------- */

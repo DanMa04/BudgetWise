@@ -2,7 +2,7 @@ import type { CartCheckResponse } from "../shared/types";
 
 const OVERLAY_HOST_ID = "kallio-overlay-host";
 const BANNER_HOST_ID = "kallio-budget-banner";
-const AUTO_DISMISS_DELAY = 5000;
+const AUTO_DISMISS_DELAY = 15000;
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -41,6 +41,7 @@ function getWarningStyles(level: "green" | "yellow" | "red") {
 }
 
 export function createOverlay(response: CartCheckResponse): void {
+  console.log("[Kallio] createOverlay: appending to body, level=", response.warning_level);
   removeOverlay();
 
   const host = document.createElement("div");

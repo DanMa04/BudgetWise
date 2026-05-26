@@ -10,6 +10,7 @@ import {
   fetchTopMerchants,
   fetchCategoryVendors,
   fetchVendorSpendingOverTime,
+  fetchVariableSpendSavings,
 } from "@/api/reports";
 
 export function useSpendingByCategory(startDate: string, endDate: string) {
@@ -156,5 +157,18 @@ export function useVendorSpendingOverTime(
       return fetchVendorSpendingOverTime(token, categoryId!, startDate, endDate, granularity, limit);
     },
     enabled: !!categoryId,
+  });
+}
+
+export function useVariableSpendSavings(startDate: string, endDate: string) {
+  const { getToken } = useAuth();
+
+  return useQuery({
+    queryKey: ["variable-spend-savings", startDate, endDate],
+    queryFn: async () => {
+      const token = await getToken();
+      if (!token) throw new Error("Not authenticated");
+      return fetchVariableSpendSavings(token, startDate, endDate);
+    },
   });
 }

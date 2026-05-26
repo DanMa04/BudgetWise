@@ -4,7 +4,7 @@ export interface DetectionResult {
 }
 
 const CHECKOUT_PATH =
-  /\/(checkout|cart|basket|bag|order[-_]?(review|summary|confirm)|payment|purchase)/i;
+  /\/(checkouts?|cart|basket|bag|order[-_]?(review|summary|confirm)|payment|purchase)/i;
 
 export function isCheckoutUrl(url: string): boolean {
   try {

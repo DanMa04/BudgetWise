@@ -93,3 +93,23 @@ class VendorSpendingOverTime(BaseModel):
 class ReportDateRange(BaseModel):
     start_date: date
     end_date: date
+
+
+class VariableSpendDay(BaseModel):
+    date: str
+    actual: float
+    avg_daily: float
+    budget_daily: float
+    cumulative_savings: float
+    cumulative_budget_savings: float
+
+
+class VariableSpendSummary(BaseModel):
+    days: list[VariableSpendDay]
+    avg_daily_baseline: float
+    budget_daily_target: float
+    total_variable_budget: float
+    total_actual: float
+    total_savings_vs_baseline: float
+    total_savings_vs_budget: float
+    has_baseline_data: bool

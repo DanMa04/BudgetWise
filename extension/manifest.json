@@ -3,7 +3,7 @@
   "name": "Kallio",
   "version": "1.0.0",
   "description": "Get budget warnings while shopping online.",
-  "permissions": ["storage", "tabs", "activeTab", "scripting"],
+  "permissions": ["storage", "tabs", "activeTab", "scripting", "webNavigation"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "dist/background.js"

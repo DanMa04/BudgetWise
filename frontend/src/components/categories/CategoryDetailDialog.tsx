@@ -15,6 +15,7 @@ import {
   useBulkCategorize,
   useRescanTransactions,
 } from "@/hooks/useCategorization";
+import { useUpdateCategory } from "@/hooks/useCategories";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import type { Category, CategoryWithSpend } from "@/types/models";
 
@@ -40,6 +41,8 @@ export function CategoryDetailDialog({
   const correctTransaction = useCorrectTransaction();
   const bulkCategorize = useBulkCategorize();
   const rescan = useRescanTransactions();
+  const updateCategory = useUpdateCategory();
+  const [isFixed, setIsFixed] = useState(category.is_fixed);
   const [showRules, setShowRules] = useState(false);
   const [expandedTxn, setExpandedTxn] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -119,7 +122,7 @@ export function CategoryDetailDialog({
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -142,6 +145,21 @@ export function CategoryDetailDialog({
               <span className="self-center text-xs text-muted-foreground">
                 {rescan.data.updated} of {rescan.data.scanned} updated
               </span>
+            )}
+            {!category.is_income && (
+              <Button
+                variant={isFixed ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  const next = !isFixed;
+                  setIsFixed(next);
+                  updateCategory.mutate({ id: category.id, data: { is_fixed: next } });
+                }}
+                disabled={updateCategory.isPending}
+                title="Fixed expenses are excluded from the Variable Spend Savings dashboard"
+              >
+                {isFixed ? "Fixed expense" : "Variable expense"}
+              </Button>
             )}
           </div>
 

@@ -13,7 +13,14 @@ interface AlertItem {
 
 export function AlertBanner() {
   const { data: summary } = useBudgetSummary();
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [dismissed, setDismissed] = useState<Set<string>>(() => {
+    try {
+      const stored = sessionStorage.getItem("kallio_dismissed_alerts");
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
 
   if (!summary) return null;
 
@@ -22,14 +29,20 @@ export function AlertBanner() {
     .map((b) => ({
       id: b.id,
       budget: b,
-      level: b.percentage_used >= 100 ? "exceeded" : "warning",
+      level: b.percentage_used > 100 ? "exceeded" : "warning",
     }))
     .filter((a) => !dismissed.has(a.id));
 
   if (alerts.length === 0) return null;
 
   function dismiss(id: string) {
-    setDismissed((prev) => new Set(prev).add(id));
+    setDismissed((prev) => {
+      const next = new Set(prev).add(id);
+      try {
+        sessionStorage.setItem("kallio_dismissed_alerts", JSON.stringify([...next]));
+      } catch {}
+      return next;
+    });
   }
 
   return (

@@ -1,6 +1,10 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
+
+logger = logging.getLogger(__name__)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -38,10 +42,19 @@ from app.routers import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     import app.models  # noqa: F401 — ensure all models are registered
-    from app.database import Base, engine
+    from app.database import Base, async_session_factory, engine
+    from app.services.gdpr_service import cleanup_expired_data
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    async def _run_retention_cleanup() -> None:
+        async with async_session_factory() as db:
+            result = await cleanup_expired_data(db)
+            await db.commit()
+            logger.info("[GDPR] Retention cleanup: %s", result)
+
+    asyncio.create_task(_run_retention_cleanup())
     yield
 
 

@@ -9,6 +9,7 @@ import type {
   TopMerchant,
   CategoryVendor,
   VendorSpendingOverTime,
+  VariableSpendSummary,
 } from "@/types/models";
 
 export async function fetchSpendingByCategory(
@@ -162,6 +163,19 @@ export async function fetchVendorSpendingOverTime(
   });
   return apiFetch<VendorSpendingOverTime[]>(
     `/api/v1/reports/vendor-spending-over-time?${params}`,
+    {},
+    token
+  );
+}
+
+export async function fetchVariableSpendSavings(
+  token: string,
+  startDate: string,
+  endDate: string,
+): Promise<VariableSpendSummary> {
+  const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
+  return apiFetch<VariableSpendSummary>(
+    `/api/v1/reports/variable-spend-savings?${params}`,
     {},
     token
   );

@@ -8,7 +8,13 @@ document.head.appendChild(meta);
 
 // Connect: React page dispatches this event with { token } when user clicks "Connect"
 window.addEventListener("kallio:connect-extension", async (e: Event) => {
-  const { token } = (e as CustomEvent<{ token: string }>).detail;
+  const token = (e as CustomEvent<{ token: string }>).detail?.token;
+  if (!token || typeof token !== "string") {
+    window.dispatchEvent(
+      new CustomEvent("kallio:extension-response", { detail: { success: false } })
+    );
+    return;
+  }
   try {
     await chrome.runtime.sendMessage({ type: "SET_AUTH_TOKEN", payload: { token } });
     window.dispatchEvent(

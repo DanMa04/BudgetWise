@@ -17,6 +17,7 @@ from app.schemas.report import (
     SpendingTrend,
     TopMerchant,
     VendorSpendingOverTime,
+    VariableSpendSummary,
 )
 from app.services.report_service import (
     get_budget_vs_actual,
@@ -27,6 +28,7 @@ from app.services.report_service import (
     get_spending_by_category_over_time,
     get_spending_trends,
     get_top_merchants,
+    get_variable_spend_savings,
     get_vendor_spending_over_time,
 )
 
@@ -158,3 +160,14 @@ async def vendor_spending_over_time(
     return await get_vendor_spending_over_time(
         db, current_user.id, category_id, start, end, granularity, limit
     )
+
+
+@router.get("/variable-spend-savings", response_model=VariableSpendSummary)
+async def variable_spend_savings(
+    start_date: date | None = Query(None),
+    end_date: date | None = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    start, end = _default_date_range(start_date, end_date)
+    return await get_variable_spend_savings(db, current_user.id, start, end)

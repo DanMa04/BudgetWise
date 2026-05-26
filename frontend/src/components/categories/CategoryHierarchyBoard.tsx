@@ -250,10 +250,10 @@ function CategoryStack({
       {/* Expanded children panel */}
       {expanded && (
         <div className="absolute left-0 right-0 top-full z-50 pt-1">
-          <div className="space-y-1 rounded-lg border bg-card p-2 shadow-lg">
+          <div className="space-y-1 rounded-lg border bg-card p-3 shadow-lg overflow-visible">
             {node.children.map((child) => (
-              <div key={child.category.id} className="flex items-center gap-1">
-                <div className="flex-1 min-w-0">
+              <div key={child.category.id} className="flex items-center gap-1 overflow-visible">
+                <div className="flex-1 min-w-0 overflow-visible">
                   <DraggableDroppableCard
                     category={child.category}
                     selectedId={selectedId}
@@ -482,7 +482,7 @@ export function CategoryHierarchyBoard() {
         onDragEnd={handleDragEnd}
       >
         {tree.length > 0 && (
-          <div className="rounded-lg border bg-card p-4">
+          <div className="rounded-lg border bg-card/50 p-4">
             <h3 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
               Grouped
               <span className="ml-1.5 normal-case tracking-normal font-normal">
@@ -510,7 +510,7 @@ export function CategoryHierarchyBoard() {
         )}
 
         {standalone.length > 0 && (
-          <div className="rounded-lg border bg-card p-4">
+          <div className="rounded-lg border bg-card/50 p-4">
             <h3 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
               Ungrouped
               <span className="ml-1.5 normal-case tracking-normal font-normal">
