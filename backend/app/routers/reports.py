@@ -16,8 +16,8 @@ from app.schemas.report import (
     SpendingByCategoryOverTime,
     SpendingTrend,
     TopMerchant,
-    VendorSpendingOverTime,
     VariableSpendSummary,
+    VendorSpendingOverTime,
 )
 from app.services.report_service import (
     get_budget_vs_actual,
