@@ -267,14 +267,13 @@
 }
 
 /* Hide resize handles outside edit mode */
-.react-grid-item > .react-resizable-handle {
-  opacity: 0;
-  transition: opacity 0.15s;
+.react-resizable-handle {
+  display: none !important;
   background-image: none !important;
   z-index: 10;
 }
-.editable-grid-active .react-grid-item > .react-resizable-handle {
-  opacity: 1;
+.editable-grid-active .react-resizable-handle {
+  display: block !important;
 }
 
 /* SE corner — L-shaped bracket grip */
