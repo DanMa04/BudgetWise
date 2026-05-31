@@ -1,7 +1,9 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
-from sqlalchemy import DateTime, Numeric, String, func
+from sqlalchemy import DateTime, Numeric, String, func, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -17,6 +19,12 @@ class User(Base):
     timezone: Mapped[str] = mapped_column(String(50), default="America/New_York")
     monthly_income_override: Mapped[Decimal | None] = mapped_column(
         Numeric(14, 2), nullable=True
+    )
+    plan: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="basic", server_default=text("'basic'")
+    )
+    onboarding_state: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

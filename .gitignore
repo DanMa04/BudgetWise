@@ -36,6 +36,7 @@ htmlcov/
 # Build
 frontend/dist/
 extension/dist/
+extension/dist-firefox/
 *.tsbuildinfo
 
 # Database
@@ -44,6 +45,7 @@ extension/dist/
 
 # ML models
 backend/app/ml/models/*.joblib
+backend/ml_models/
 
 # Docker
 docker-compose.override.yml

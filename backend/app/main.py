@@ -18,15 +18,18 @@ from app.middleware.rate_limit import limiter
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.routers import (
     accounts,
+    ai_assistant,
     ai_categorization,
     auth,
     budgets,
     categories,
     categorization,
+    dev,
     extension,
     goals,
     import_,
     notifications,
+    onboarding,
     plaid,
     projections,
     reports,
@@ -95,12 +98,15 @@ app.include_router(plaid.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")
 app.include_router(goals.router, prefix="/api/v1")
 app.include_router(notifications.router, prefix="/api/v1")
+app.include_router(onboarding.router, prefix="/api/v1")
 app.include_router(teller.router, prefix="/api/v1")
 app.include_router(transfer_rules.router, prefix="/api/v1")
 app.include_router(snapshots.router, prefix="/api/v1")
 app.include_router(ai_categorization.router, prefix="/api/v1")
+app.include_router(ai_assistant.router, prefix="/api/v1")
 app.include_router(projections.router, prefix="/api/v1")
 app.include_router(extension.router, prefix="/api/v1")
+app.include_router(dev.router, prefix="/api/v1")
 
 
 @app.get("/api/health")

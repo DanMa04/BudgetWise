@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +22,11 @@ import {
 import { formatCurrency } from "@/lib/formatters";
 import { groupSpendingByParent } from "@/lib/categoryGrouping";
 import { AlertBanner } from "@/components/notifications/AlertBanner";
+import { OnboardingChecklist } from "@/components/onboarding/OnboardingChecklist";
+import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
+import { useOnboardingAutoSync } from "@/components/onboarding/useOnboardingAutoSync";
+import { useOnboardingState } from "@/hooks/useOnboarding";
+import { shouldShowBanner } from "@/components/onboarding/derive";
 import { EditableGrid } from "@/components/layout/EditableGrid";
 import { GridCard } from "@/components/layout/GridCard";
 import { useGridLayout, type LayoutPreset } from "@/hooks/useGridLayout";
@@ -165,8 +170,46 @@ export function DashboardPage() {
   const { data: spendingTrends } = useSpendingTrends(startDate, endDate, "daily");
   const { data: topMerchants } = useTopMerchants(startDate, endDate, 5);
   const { data: variableSpend } = useVariableSpendSavings(startDate, endDate);
-  const { data: accounts } = useAccounts();
+  const { data: accounts, isFetched: accountsFetched } = useAccounts();
   const { data: goals } = useGoals();
+
+  useOnboardingAutoSync();
+  const { data: onboardingState, isFetched: onboardingFetched } =
+    useOnboardingState();
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [autoOpened, setAutoOpened] = useState(false);
+
+  useEffect(() => {
+    if (autoOpened) return;
+    if (!onboardingFetched || !accountsFetched) return;
+    if (!onboardingState) return;
+    if (!shouldShowBanner(onboardingState)) return;
+    // Only auto-open if the user has never made progress yet.
+    if (onboardingState.started_at) return;
+    setWizardOpen(true);
+    setAutoOpened(true);
+  }, [
+    autoOpened,
+    onboardingFetched,
+    accountsFetched,
+    onboardingState,
+  ]);
+
+  const wizardInitialStep = (() => {
+    const last = onboardingState?.last_step;
+    if (
+      last === "welcome" ||
+      last === "choose-path" ||
+      last === "accounts" ||
+      last === "categorize" ||
+      last === "goals" ||
+      last === "budget" ||
+      last === "complete"
+    ) {
+      return last;
+    }
+    return undefined;
+  })();
 
   const budgetHealth = summary
     ? Math.round(
@@ -182,6 +225,12 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      <OnboardingChecklist onResume={() => setWizardOpen(true)} />
+      <OnboardingWizard
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        initialStep={wizardInitialStep}
+      />
       <AlertBanner />
       <div className="flex items-end justify-between">
         <div>

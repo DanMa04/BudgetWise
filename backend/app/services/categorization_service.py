@@ -62,6 +62,38 @@ async def categorize_transaction(
     return None, 0.0, "ml"
 
 
+async def apply_rules_to_uncategorized(
+    db: AsyncSession, user_id: uuid.UUID
+) -> int:
+    """Apply existing active rules to every uncategorized transaction.
+
+    Deterministic, idempotent, and rule-driven only (no ML, no AI). Returns
+    the number of transactions that received a category. Used by the AI
+    onboarding assistant to make sense of imports before the conversation.
+    """
+    result = await db.execute(
+        select(Transaction).where(
+            Transaction.user_id == user_id,
+            Transaction.category_id.is_(None),
+        )
+    )
+    uncategorized = list(result.scalars().all())
+    if not uncategorized:
+        return 0
+
+    updated = 0
+    for txn in uncategorized:
+        cat_id = await apply_rules(db, user_id, txn.description)
+        if cat_id:
+            txn.category_id = cat_id
+            txn.category_source = "rule"
+            txn.category_confidence = 1.0
+            updated += 1
+    if updated:
+        await db.flush()
+    return updated
+
+
 async def apply_rules(
     db: AsyncSession, user_id: uuid.UUID, description: str
 ) -> uuid.UUID | None:

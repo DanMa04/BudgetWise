@@ -670,3 +670,53 @@ export interface InvestmentProjectionResponse {
   balance_20y: number;
   balance_30y: number;
 }
+
+// Onboarding
+
+export type Plan = "basic" | "pro";
+
+export type OnboardingStepKey =
+  | "accounts_linked"
+  | "transactions_imported"
+  | "transactions_categorized"
+  | "goals_created"
+  | "budget_created";
+
+export interface OnboardingStepStatus {
+  done: boolean;
+  completed_at: string | null;
+  count?: number;
+  method?: string;
+  [key: string]: unknown;
+}
+
+export interface OnboardingDerived {
+  account_count: number;
+  transaction_count: number;
+  uncategorized_count: number;
+  goal_count: number;
+  active_budget_count: number;
+  next_step: OnboardingStepKey | null;
+  percent_complete: number;
+}
+
+export interface OnboardingState {
+  version: number;
+  started_at: string | null;
+  completed_at: string | null;
+  dismissed_at: string | null;
+  last_step: string | null;
+  path: "manual" | "ai" | null;
+  steps: Record<OnboardingStepKey, OnboardingStepStatus>;
+  ai_assist_used: boolean;
+  wizard_dismissed: boolean;
+  plan: Plan;
+  derived: OnboardingDerived | null;
+}
+
+export interface OnboardingPatch {
+  last_step?: string;
+  path?: "manual" | "ai";
+  ai_assist_used?: boolean;
+  steps?: Partial<Record<OnboardingStepKey, Partial<OnboardingStepStatus>>>;
+}
