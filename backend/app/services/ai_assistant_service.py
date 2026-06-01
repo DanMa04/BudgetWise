@@ -38,7 +38,6 @@ from app.schemas.ai_assistant import (
 from app.schemas.budget import BulkBudgetItem, BulkBudgetSave, GoalContributionItem
 from app.schemas.goal import GoalCreate
 from app.services import (
-    ai_categorization_service,
     budget_service,
     categorization_service,
     goal_service,
@@ -134,6 +133,16 @@ When you have enough to propose:
   it, or omit the goal from the proposal entirely. Never emit a goal with
   `target_amount: null`.
 - Budget allocations + goal contributions should sum to `monthly_income` (zero-based).
+- **Categorization is ADDITIVE only.** Transactions already categorized via
+  the user's rules will keep their existing category — the apply step will
+  not overwrite them. So `categorization.assignments` should ONLY include
+  transactions whose category is currently `Uncategorized` in the data you
+  were given. Do not propose to "reorganize" already-categorized
+  transactions; if you think a category is misnamed, mention it in the
+  message instead. The budget allocation `category_name` values may
+  reference EXISTING categories (from "Existing categories" list) — you
+  don't need to list them in `proposed_categories` unless you're creating
+  new ones for uncategorized transactions.
 - Every transaction in the sample provided must appear in `assignments`.
 - Each `assignments[*].category_name` must exactly match one `proposed_categories[*].name`.
 - Each `goal_contributions[*].goal_name` must exactly match one `goals[*].name`.
@@ -545,6 +554,98 @@ async def chat_turn(
     )
 
 
+async def _apply_categorization_additive(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    categorization: dict[str, Any],
+) -> dict[str, int]:
+    """Apply AI-proposed categorization additively.
+
+    Only categorizes transactions that currently have no category. Existing
+    categorizations (from rules or prior decisions) are preserved. New
+    categories are only created when needed to satisfy an uncategorized
+    transaction's assignment. Categories not in the proposal are left
+    untouched.
+    """
+    proposed = categorization.get("proposed_categories", []) or []
+    assignments = categorization.get("assignments", []) or []
+
+    cats = (
+        await db.execute(select(Category).where(Category.user_id == user_id))
+    ).scalars().all()
+    cat_by_name: dict[str, Category] = {c.name.lower(): c for c in cats}
+
+    txn_ids = []
+    for a in assignments:
+        try:
+            txn_ids.append(uuid.UUID(a["transaction_id"]))
+        except (KeyError, ValueError, TypeError):
+            continue
+
+    if not txn_ids:
+        return {"categories_created": 0, "transactions_updated": 0}
+
+    txn_result = await db.execute(
+        select(Transaction).where(
+            Transaction.user_id == user_id,
+            Transaction.id.in_(txn_ids),
+            Transaction.category_id.is_(None),
+        )
+    )
+    uncategorized = {str(t.id): t for t in txn_result.scalars().all()}
+    if not uncategorized:
+        return {"categories_created": 0, "transactions_updated": 0}
+
+    needed_names = {
+        a["category_name"].strip()
+        for a in assignments
+        if a.get("transaction_id") in uncategorized
+        and isinstance(a.get("category_name"), str)
+        and a["category_name"].strip()
+    }
+
+    categories_created = 0
+    for name in needed_names:
+        if name.lower() in cat_by_name:
+            continue
+        meta = next(
+            (p for p in proposed if isinstance(p.get("name"), str)
+             and p["name"].strip().lower() == name.lower()),
+            None,
+        )
+        new_cat = Category(
+            user_id=user_id,
+            name=name,
+            color=(meta or {}).get("color"),
+            is_income=bool((meta or {}).get("is_income", False)),
+            is_fixed=bool((meta or {}).get("is_fixed", False)),
+        )
+        db.add(new_cat)
+        await db.flush()
+        cat_by_name[name.lower()] = new_cat
+        categories_created += 1
+
+    txns_updated = 0
+    for a in assignments:
+        txn = uncategorized.get(a.get("transaction_id"))
+        if not txn:
+            continue
+        cat_name = (a.get("category_name") or "").strip().lower()
+        cat = cat_by_name.get(cat_name)
+        if not cat:
+            continue
+        txn.category_id = cat.id
+        txn.category_source = "ai"
+        txn.category_confidence = 0.9
+        txns_updated += 1
+
+    await db.flush()
+    return {
+        "categories_created": categories_created,
+        "transactions_updated": txns_updated,
+    }
+
+
 async def apply_proposal(
     db: AsyncSession,
     user_id: uuid.UUID,
@@ -556,10 +657,12 @@ async def apply_proposal(
     )
     snapshot_id = str(snapshot.id) if snapshot else None
 
-    # 2. Categories + transaction assignments (uses existing service).
+    # 2. Categorization — ADDITIVE only. Existing rule-based categorizations
+    # are preserved; the AI's proposal only fills in transactions that are
+    # still uncategorized. Never deletes categories or overwrites assignments.
     cat_result = {"categories_created": 0, "transactions_updated": 0}
     if proposal.categorization:
-        cat_result = await ai_categorization_service.apply_proposal(
+        cat_result = await _apply_categorization_additive(
             db, user_id, proposal.categorization
         )
 
@@ -611,20 +714,29 @@ async def apply_proposal(
         goal_by_name[g.name.lower()] = new_goal.id
         goals_created += 1
 
-    # 4. Budget (zero-based) — resolve names → ids, then call existing service.
+    # 4. Budget (zero-based) — resolve names → ids, auto-creating any
+    # category the AI referenced but didn't include in proposed_categories.
+    # (Claude often references categories by colloquial names like "Mortgage"
+    # instead of the existing "Housing" — auto-create rather than blocking.)
     allocations_saved = 0
     if proposal.budget:
         items: list[BulkBudgetItem] = []
         for a in proposal.budget.allocations:
             cat_id = cat_by_name.get(a.category_name.lower())
             if not cat_id:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"Could not resolve category '{a.category_name}' from the "
-                        "proposal — it does not match any existing or proposed "
-                        "category. Try again."
-                    ),
+                new_cat = Category(
+                    user_id=user_id,
+                    name=a.category_name,
+                    is_income=False,
+                    is_fixed=False,
+                )
+                db.add(new_cat)
+                await db.flush()
+                cat_id = new_cat.id
+                cat_by_name[a.category_name.lower()] = cat_id
+                logger.info(
+                    "[ai_assistant] auto-created category '%s' for budget allocation",
+                    a.category_name,
                 )
             items.append(
                 BulkBudgetItem(
@@ -638,13 +750,11 @@ async def apply_proposal(
         for gc in proposal.budget.goal_contributions:
             goal_id = goal_by_name.get(gc.goal_name.lower())
             if not goal_id:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"Could not resolve goal '{gc.goal_name}' from the "
-                        "proposal. Try again."
-                    ),
+                logger.warning(
+                    "[ai_assistant] skipping goal_contribution for unknown goal '%s'",
+                    gc.goal_name,
                 )
+                continue
             contributions.append(
                 GoalContributionItem(
                     goal_id=goal_id, monthly_amount=gc.monthly_amount
