@@ -50,6 +50,17 @@ async def categorize_transaction(
     if model:
         category_id, confidence = model.predict(description)
         if category_id:
+            # Validate: the model may still hold IDs from categories the user
+            # has since deleted (e.g. after wipe-data). A stale ID would
+            # cause an FK violation on UPDATE, so verify before returning.
+            exists = await db.scalar(
+                select(Category.id).where(
+                    Category.id == category_id,
+                    Category.user_id == user_id,
+                )
+            )
+            if not exists:
+                return None, 0.0, "ml"
             if amount is not None and txn_date is not None:
                 override = await apply_transfer_rules(
                     db, user_id, category_id, amount, txn_date, description
@@ -553,17 +564,32 @@ P2P_CATEGORY_NAMES = {"venmo", "zelle", "cash app", "paypal", "apple cash"}
 async def apply_transfer_rules(
     db: AsyncSession,
     user_id: uuid.UUID,
-    category_id: uuid.UUID,
+    category_id: uuid.UUID | None,
     amount: Decimal,
     txn_date: date,
     description: str,
 ) -> uuid.UUID | None:
-    """Re-categorize transactions using transfer rules for any source category."""
+    """Re-categorize a transaction using transfer rules.
+
+    A rule matches when EITHER:
+      - rule.source_category_id == category_id (scoped rule), OR
+      - rule.match_all_categories is True (global rule that fires on
+        description/amount/date alone, regardless of current category).
+    """
+    from sqlalchemy import or_
+
+    source_clause = TransferRule.match_all_categories.is_(True)
+    if category_id is not None:
+        source_clause = or_(
+            TransferRule.source_category_id == category_id,
+            TransferRule.match_all_categories.is_(True),
+        )
+
     result = await db.execute(
         select(TransferRule)
         .where(
             TransferRule.user_id == user_id,
-            TransferRule.source_category_id == category_id,
+            source_clause,
             TransferRule.is_active.is_(True),
         )
         .order_by(TransferRule.priority.desc())
@@ -589,7 +615,11 @@ async def apply_transfer_rules(
                 continue
 
         if rule.counterparty_pattern:
-            if rule.counterparty_pattern.lower() not in desc_lower:
+            pattern_lower = rule.counterparty_pattern.lower().strip()
+            if rule.counterparty_match_type == "exact":
+                if desc_lower.strip() != pattern_lower:
+                    continue
+            elif pattern_lower not in desc_lower:
                 continue
 
         rule.match_count += 1

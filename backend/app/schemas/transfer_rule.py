@@ -1,7 +1,10 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
+
+MatchType = Literal["contains", "exact"]
 
 
 class TransferRuleCreate(BaseModel):
@@ -14,6 +17,8 @@ class TransferRuleCreate(BaseModel):
     day_of_month: int | None = None
     day_tolerance: int = 2
     counterparty_pattern: str | None = None
+    counterparty_match_type: MatchType = "contains"
+    match_all_categories: bool = False
     priority: int = 0
 
 
@@ -26,6 +31,8 @@ class TransferRuleUpdate(BaseModel):
     day_of_month: int | None = None
     day_tolerance: int | None = None
     counterparty_pattern: str | None = None
+    counterparty_match_type: MatchType | None = None
+    match_all_categories: bool | None = None
     is_active: bool | None = None
     priority: int | None = None
 
@@ -42,6 +49,8 @@ class TransferRuleRead(BaseModel):
     day_of_month: int | None
     day_tolerance: int
     counterparty_pattern: str | None
+    counterparty_match_type: MatchType
+    match_all_categories: bool
     is_active: bool
     priority: int
     match_count: int

@@ -12,7 +12,7 @@ import {
   useDroppable,
 } from "@dnd-kit/core";
 import type { DragStartEvent, DragEndEvent } from "@dnd-kit/core";
-import { Search, Unlink, MoreHorizontal } from "lucide-react";
+import { Eye, EyeOff, Search, Unlink, MoreHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -308,6 +308,7 @@ export function CategoryHierarchyBoard() {
   const subordinate = useSubordinateCategory();
   const unsubordinate = useUnsubordinateCategory();
   const [search, setSearch] = useState("");
+  const [showEmpty, setShowEmpty] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedStackId, setExpandedStackId] = useState<string | null>(null);
@@ -342,14 +343,40 @@ export function CategoryHierarchyBoard() {
     [categories]
   );
 
+  // An "empty" category has zero transactions itself AND no descendants
+  // that have transactions. Hidden by default to keep the board clean.
+  const { visibleCategories, hiddenCount } = useMemo(() => {
+    if (showEmpty) {
+      return { visibleCategories: expenseCategories, hiddenCount: 0 };
+    }
+    const childrenSpendByParent = new Map<string, number>();
+    for (const c of expenseCategories) {
+      if (c.parent_id) {
+        childrenSpendByParent.set(
+          c.parent_id,
+          (childrenSpendByParent.get(c.parent_id) ?? 0) + c.transaction_count,
+        );
+      }
+    }
+    const visible = expenseCategories.filter((c) => {
+      if (c.transaction_count > 0) return true;
+      if ((childrenSpendByParent.get(c.id) ?? 0) > 0) return true;
+      return false;
+    });
+    return {
+      visibleCategories: visible,
+      hiddenCount: expenseCategories.length - visible.length,
+    };
+  }, [expenseCategories, showEmpty]);
+
   const catById = useMemo(
     () => new Map(expenseCategories.map((c) => [c.id, c])),
     [expenseCategories]
   );
 
   const { tree, standalone } = useMemo(
-    () => buildCategoryTree(expenseCategories, search),
-    [expenseCategories, search]
+    () => buildCategoryTree(visibleCategories, search),
+    [visibleCategories, search]
   );
 
   const draggingCategory = draggingId ? catById.get(draggingId) : null;
@@ -467,14 +494,43 @@ export function CategoryHierarchyBoard() {
     <div className="space-y-4">
       <MergeSuggestionsBanner categories={categories} />
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Filter categories..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Filter categories..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowEmpty((v) => !v)}
+          title={
+            showEmpty
+              ? "Hide categories with no transactions"
+              : "Show all categories, including empty ones"
+          }
+        >
+          {showEmpty ? (
+            <>
+              <EyeOff className="mr-1.5 h-4 w-4" />
+              Hide empty
+            </>
+          ) : (
+            <>
+              <Eye className="mr-1.5 h-4 w-4" />
+              Show empty
+              {hiddenCount > 0 && (
+                <span className="ml-1 text-xs text-muted-foreground">
+                  ({hiddenCount})
+                </span>
+              )}
+            </>
+          )}
+        </Button>
       </div>
 
       {selectedId && (

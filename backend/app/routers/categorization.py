@@ -133,13 +133,30 @@ async def rescan_transactions(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Re-run categorization rules on existing transactions."""
-    from sqlalchemy import select
+    """Re-run categorization rules on existing transactions.
+
+    The optional category_id narrows the scan to transactions in that
+    category. If the user has any active global transfer rules
+    (match_all_categories=True), we scan all transactions anyway so those
+    rules can fire across the board.
+    """
+    from sqlalchemy import func, select
 
     from app.models.transaction import Transaction
+    from app.models.transfer_rule import TransferRule
+
+    has_global_rules = (
+        await db.scalar(
+            select(func.count(TransferRule.id)).where(
+                TransferRule.user_id == current_user.id,
+                TransferRule.match_all_categories.is_(True),
+                TransferRule.is_active.is_(True),
+            )
+        )
+    ) or 0
 
     query = select(Transaction).where(Transaction.user_id == current_user.id)
-    if category_id:
+    if category_id and not has_global_rules:
         query = query.where(Transaction.category_id == category_id)
 
     result = await db.execute(query)
@@ -156,14 +173,20 @@ async def rescan_transactions(
             txn.category_source = source
             updated += 1
 
-        if txn.category_id:
-            override = await apply_transfer_rules(
-                db, current_user.id, txn.category_id, txn.amount, txn.date, txn.description
-            )
-            if override and override != txn.category_id:
-                txn.category_id = override
-                txn.category_source = "transfer_rule"
-                updated += 1
+        # Apply transfer rules: scoped rules need a current category;
+        # global rules fire even on uncategorized transactions.
+        override = await apply_transfer_rules(
+            db,
+            current_user.id,
+            txn.category_id,
+            txn.amount,
+            txn.date,
+            txn.description,
+        )
+        if override and override != txn.category_id:
+            txn.category_id = override
+            txn.category_source = "transfer_rule"
+            updated += 1
 
     await db.flush()
     return {"scanned": len(transactions), "updated": updated}

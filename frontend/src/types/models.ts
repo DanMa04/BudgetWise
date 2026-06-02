@@ -558,6 +558,8 @@ export interface UpdateNotificationPreference {
   threshold?: number | null;
 }
 
+export type TransferRuleMatchType = "contains" | "exact";
+
 export interface TransferRule {
   id: string;
   user_id: string;
@@ -570,6 +572,8 @@ export interface TransferRule {
   day_of_month: number | null;
   day_tolerance: number;
   counterparty_pattern: string | null;
+  counterparty_match_type: TransferRuleMatchType;
+  match_all_categories: boolean;
   is_active: boolean;
   priority: number;
   match_count: number;
@@ -586,6 +590,8 @@ export interface CreateTransferRuleData {
   day_of_month?: number | null;
   day_tolerance?: number;
   counterparty_pattern?: string | null;
+  counterparty_match_type?: TransferRuleMatchType;
+  match_all_categories?: boolean;
   priority?: number;
 }
 
@@ -598,6 +604,8 @@ export interface UpdateTransferRuleData {
   day_of_month?: number | null;
   day_tolerance?: number;
   counterparty_pattern?: string | null;
+  counterparty_match_type?: TransferRuleMatchType;
+  match_all_categories?: boolean;
   is_active?: boolean;
   priority?: number;
 }

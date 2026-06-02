@@ -91,6 +91,32 @@ export function AiTakeTheWheelChat({ onApplied, onBack }: Props) {
     void callChat(next);
   }
 
+  function handleRequestChanges(feedback: string) {
+    // Append the user's feedback as a new turn. The history we send to the
+    // backend must reconstruct the prior conversation: assistant turns
+    // (visible messages) + the prior proposal summary as the most recent
+    // assistant turn so Claude has full context for revising.
+    const historyForBackend: AiChatMessage[] = [
+      ...messages,
+      {
+        role: "assistant",
+        content:
+          summary ||
+          "(Proposed a starter setup; see prior message for details.)",
+      },
+      { role: "user", content: feedback },
+    ];
+    // Show the user's feedback in the chat panel for continuity.
+    setMessages((prev) => [
+      ...prev,
+      { role: "assistant", content: summary || "(Proposed a starter setup.)" },
+      { role: "user", content: feedback },
+    ]);
+    setProposal(null);
+    setSummary("");
+    void callChat(historyForBackend);
+  }
+
   if (proposal) {
     return (
       <AiProposalReview
@@ -98,6 +124,8 @@ export function AiTakeTheWheelChat({ onApplied, onBack }: Props) {
         summary={summary}
         onApplied={onApplied}
         onBack={() => setProposal(null)}
+        onRequestChanges={handleRequestChanges}
+        changesPending={isPending}
       />
     );
   }

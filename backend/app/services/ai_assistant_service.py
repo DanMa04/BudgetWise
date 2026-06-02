@@ -13,7 +13,7 @@ import json
 import logging
 import uuid
 from collections import Counter
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -46,6 +46,168 @@ from app.services.snapshot_service import create_snapshot
 
 MAX_QUESTIONS = 8
 
+# Tool-use schema: forces Claude to emit a structured turn instead of prose.
+# Both questioning and proposing flow through the same tool — fields not
+# relevant to the current phase are simply omitted.
+RESPOND_TOOL = {
+    "name": "respond",
+    "description": (
+        "Submit your turn. Use phase='questioning' to ask a follow-up; use "
+        "phase='proposing' when you have enough to produce the final "
+        "starter setup."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "phase": {
+                "type": "string",
+                "enum": ["questioning", "proposing"],
+            },
+            "message": {
+                "type": "string",
+                "description": (
+                    "Conversational text shown to the user. In questioning "
+                    "phase this is the next question. In proposing phase "
+                    "this is a short summary above the proposal."
+                ),
+            },
+            "progress": {
+                "type": "object",
+                "properties": {
+                    "asked": {"type": "integer"},
+                    "estimated_total": {"type": "integer"},
+                },
+            },
+            "proposal": {
+                "type": "object",
+                "description": "Only set when phase='proposing'.",
+                "properties": {
+                    "monthly_income": {"type": "number"},
+                    "categorization": {
+                        "type": "object",
+                        "properties": {
+                            "proposed_categories": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "existing_id": {"type": ["string", "null"]},
+                                        "color": {"type": ["string", "null"]},
+                                        "is_income": {"type": "boolean"},
+                                        "is_fixed": {"type": "boolean"},
+                                        "children": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "name": {"type": "string"},
+                                                    "existing_id": {"type": ["string", "null"]},
+                                                    "color": {"type": ["string", "null"]},
+                                                    "is_income": {"type": "boolean"},
+                                                    "is_fixed": {"type": "boolean"},
+                                                },
+                                                "required": ["name"],
+                                            },
+                                        },
+                                        "merged_from": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                        },
+                                    },
+                                    "required": ["name"],
+                                },
+                            },
+                            "assignments": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "transaction_id": {"type": "string"},
+                                        "category_name": {"type": "string"},
+                                    },
+                                    "required": ["transaction_id", "category_name"],
+                                },
+                            },
+                            "summary": {"type": "string"},
+                        },
+                    },
+                    "goals": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "goal_type": {
+                                    "type": "string",
+                                    "enum": [
+                                        "savings",
+                                        "debt_payoff",
+                                        "emergency_fund",
+                                        "custom",
+                                    ],
+                                },
+                                "target_amount": {"type": "number"},
+                                "target_date": {"type": ["string", "null"]},
+                                "planned_monthly_contribution": {
+                                    "type": ["number", "null"]
+                                },
+                                "color": {"type": ["string", "null"]},
+                            },
+                            "required": ["name", "target_amount"],
+                        },
+                    },
+                    "budget": {
+                        "type": "object",
+                        "properties": {
+                            "monthly_income": {"type": "number"},
+                            "period_type": {"type": "string"},
+                            "allocations": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "category_name": {"type": "string"},
+                                        "amount": {"type": "number"},
+                                        "is_locked": {"type": "boolean"},
+                                    },
+                                    "required": ["category_name", "amount"],
+                                },
+                            },
+                            "goal_contributions": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "goal_name": {"type": "string"},
+                                        "monthly_amount": {"type": "number"},
+                                    },
+                                    "required": ["goal_name", "monthly_amount"],
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        "required": ["phase", "message"],
+    },
+}
+
+# How far back to sample transactions for the AI assistant's analysis.
+# 4 months gives a meaningful baseline of monthly averages, lets seasonal/
+# quarterly spend show up, and surfaces both recurring AND variable patterns.
+TRANSACTION_SAMPLE_DAYS = 120
+# Safety cap for unusually high-volume users — keeps context size sane and
+# avoids overwhelming Claude's output budget with thousands of assignments.
+TRANSACTION_SAMPLE_MAX = 1000
+
+# Model selection: Haiku 4.5 for conversational turns (cheap + fast), Sonnet
+# 4.6 for the final proposal turn where compound reasoning matters most
+# (subcategorization, recurring-vs-one-off splits, JSON schema compliance).
+MODEL_QUESTIONING = "claude-haiku-4-5-20251001"
+MODEL_PROPOSING = "claude-sonnet-4-6"
+
 SYSTEM_PROMPT = f"""\
 You are Kallio's onboarding assistant. Your job is to analyze the user's
 imported financial data and then propose a complete starter setup: transaction
@@ -61,7 +223,10 @@ categorizations, savings/debt goals, and a zero-based monthly budget.
          Treat as fixed unless context suggests otherwise.
        • "Variable spend (same merchant, varying amounts)" — NOT recurring.
          Same merchant can serve both subscriptions AND one-off purchases
-         (e.g. Amazon Prime = subscription, regular Amazon = variable).
+         (e.g. Amazon Prime = subscription, regular Amazon = variable). If
+         the merchant appears in BOTH the recurring AND variable lists, you
+         MUST split it into TWO categories — one for the subscription, one
+         for the discretionary spend.
   2. "Categorization Rules" — the user's active rule set. Subscription rules
      are the source of truth for what's recurring. User-created rules show
      explicit user intent (respect them — do not propose categories that
@@ -72,7 +237,9 @@ categorizations, savings/debt goals, and a zero-based monthly budget.
      ~$Y/mo in expenses, ~$Z/mo in confirmed subscriptions").
   2. State the assumptions you'll make based on the data, distinguishing
      fixed/recurring charges from variable spending.
-  3. Ask ONE targeted clarifying question about something you can't infer.
+  3. Ask the user whether they prefer **detailed** (subcategories, lots of
+     buckets) or **simplified** (a small set of broad parent categories)
+     organization. This is a required choice unless they've already said.
 - DO NOT ask about facts already visible in the data (income amount, top
   expenses, recurring subscriptions). Use the data — don't re-elicit it.
 - Subsequent turns: ask only about things the data can't tell you — savings
@@ -81,12 +248,43 @@ categorizations, savings/debt goals, and a zero-based monthly budget.
 - One focused question per turn. Be concise and conversational.
 - You may ask at most {MAX_QUESTIONS} questions total before proposing.
 - If the user gives you enough, propose immediately — don't pad with questions.
-- In the proposal, mark `is_fixed: true` on categories that contain
-  confirmed-recurring or likely-recurring charges; leave `is_fixed: false`
-  for variable categories.
+
+# Categorization rules you MUST follow
+- **Fixed vs variable**: mark `is_fixed: true` for categories containing
+  rent/mortgage, utilities (electric/gas/water/internet/phone), insurance,
+  loan/car/debt payments, subscriptions, and any charges that appear in the
+  "Confirmed recurring" or "Likely recurring" buckets. Leave `is_fixed:
+  false` for discretionary buckets (groceries, dining, shopping, etc.).
+- **Recurring vs one-off from same vendor**: if the same merchant appears in
+  both "Confirmed recurring" and "Variable spend", split it. Example:
+  Amazon → "Subscriptions" (Prime/Audible) AND "Shopping" (one-off orders).
+  Use the [recurring] flag on individual transactions to decide which
+  bucket each transaction goes to.
+- **Subcategorization (detailed mode)**: structure categories as parent →
+  children using the `children` array. Sensible parents: Housing, Food,
+  Transportation, Subscriptions, Utilities, Personal Care, Shopping,
+  Entertainment. Sensible children: under Food → Groceries / Dining Out /
+  Coffee Shops / Food Delivery; under Transportation → Gas / Rideshare /
+  Parking / Public Transit. Only create a child when at least 3 sample
+  transactions fit it — otherwise keep them at the parent level.
+- **Simplified mode**: keep the proposal to 6–10 top-level parents and
+  empty `children` arrays. Roll specific spend into broader buckets.
+- **Mergers**: if you see existing categories that should logically merge
+  (e.g. "Apartment Rent" and "Rent" both exist), list the redundant ones
+  in `merged_from` on the kept category. The apply step will inform the
+  user; the user reviews before any merging actually happens.
+- **Miscellaneous bucket**: always include a `"Miscellaneous"` category
+  with `is_fixed: false`. Use it for low-frequency, unclear, or one-off
+  transactions that don't fit other categories well. Don't force-fit
+  outliers into unrelated parents.
 
 # Output format
-Respond ONLY with valid JSON. No markdown, no explanation outside the JSON.
+Respond ONLY with a single JSON object. Your VERY FIRST character must be
+an opening brace and your LAST character must be a closing brace. No
+markdown fences, no triple-backtick wrappers, no prose before or after
+the JSON, no explanations. Every turn — questioning AND proposing — must
+be a JSON object. If you find yourself wanting to write a conversational
+reply, wrap it inside the `"message"` field of a questioning JSON object.
 
 While still gathering info:
 {{
@@ -143,8 +341,13 @@ When you have enough to propose:
   reference EXISTING categories (from "Existing categories" list) — you
   don't need to list them in `proposed_categories` unless you're creating
   new ones for uncategorized transactions.
-- Every transaction in the sample provided must appear in `assignments`.
-- Each `assignments[*].category_name` must exactly match one `proposed_categories[*].name`.
+- Every uncategorized transaction in the sample MUST appear in `assignments`,
+  including outliers — use `"Miscellaneous"` for those that don't fit
+  anywhere else. Already-categorized transactions don't need assignments
+  (they'll keep their existing category).
+- Each `assignments[*].category_name` must exactly match one
+  `proposed_categories[*].name` OR one of its `children[*].name`. Always
+  assign to the most specific category (child if available, else parent).
 - Each `goal_contributions[*].goal_name` must exactly match one `goals[*].name`.
 - Each `allocations[*].category_name` must exactly match one `proposed_categories[*].name`.
 - Use existing category IDs (provided to you) when a proposed category corresponds to an existing one — set `existing_id` to that uuid.
@@ -431,14 +634,23 @@ async def chat_turn(
 
     transactions: list[Transaction] = []
     if request.context.include_transactions:
+        since = date.today() - timedelta(days=TRANSACTION_SAMPLE_DAYS)
         transactions = (
             await db.execute(
                 select(Transaction)
-                .where(Transaction.user_id == user_id)
+                .where(
+                    Transaction.user_id == user_id,
+                    Transaction.date >= since,
+                )
                 .order_by(Transaction.date.desc())
-                .limit(100)
+                .limit(TRANSACTION_SAMPLE_MAX)
             )
         ).scalars().all()
+        logger.info(
+            "[ai_assistant] sampled %s transactions from the last %s days",
+            len(transactions),
+            TRANSACTION_SAMPLE_DAYS,
+        )
 
     rules = (
         await db.execute(
@@ -453,42 +665,69 @@ async def chat_turn(
 
     context_block = _build_context_prompt(categories, transactions, rules)
 
-    # Convert message history into Anthropic format. First user turn is
-    # prefixed with the context block so the model has it from message 1.
-    messages: list[dict[str, Any]] = []
-    for i, m in enumerate(request.messages):
-        content = m.content
-        if i == 0 and m.role == "user":
-            content = f"{context_block}\n\n---\n\nUser: {content}"
-        messages.append({"role": m.role, "content": content})
-
-    if not messages:
-        # First call — synthesise a leading user turn so Claude opens with q1.
-        messages = [
-            {
-                "role": "user",
-                "content": f"{context_block}\n\n---\n\nUser: Help me set up my budget.",
-            }
-        ]
-
-    # Smaller token budget for the questioning phase keeps latency low; the
-    # proposing phase needs more room for the categorization payload.
+    # Pick model + token budget based on phase. Questioning is short and
+    # conversational (Haiku); proposing is the heavy-reasoning turn (Sonnet).
     is_proposing = len(request.messages) >= 4
-    max_tokens = 16384 if is_proposing else 2048
+    if is_proposing:
+        model = MODEL_PROPOSING
+        max_tokens = 16384
+    else:
+        model = MODEL_QUESTIONING
+        max_tokens = 1024
+
+    # Build the message list. The first user turn carries the context block
+    # as a SEPARATE content block with cache_control so Anthropic caches it
+    # across all turns in the session. The system prompt is also cached.
+    first_user_text: str | None = None
+    rest_messages: list[dict[str, Any]] = []
+    if request.messages:
+        for i, m in enumerate(request.messages):
+            if i == 0 and m.role == "user":
+                first_user_text = m.content
+            else:
+                rest_messages.append({"role": m.role, "content": m.content})
+    else:
+        first_user_text = "Help me set up my budget."
+
+    first_user_blocks: list[dict[str, Any]] = [
+        {
+            "type": "text",
+            "text": context_block,
+            "cache_control": {"type": "ephemeral"},
+        },
+        {
+            "type": "text",
+            "text": f"---\n\nUser: {first_user_text}",
+        },
+    ]
+
+    messages: list[dict[str, Any]] = [
+        {"role": "user", "content": first_user_blocks},
+        *rest_messages,
+    ]
+
+    system_blocks = [
+        {
+            "type": "text",
+            "text": SYSTEM_PROMPT,
+            "cache_control": {"type": "ephemeral"},
+        }
+    ]
 
     import anthropic
 
     client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    # Tool use forces structured output that matches RESPOND_TOOL's schema,
+    # replacing the previous JSON-in-prose + parse approach. The API
+    # guarantees the response will be a tool_use block we can read directly.
     response = await client.messages.create(
-        model="claude-haiku-4-5-20251001",
+        model=model,
         max_tokens=max_tokens,
-        system=SYSTEM_PROMPT,
+        system=system_blocks,
         messages=messages,
+        tools=[RESPOND_TOOL],
+        tool_choice={"type": "tool", "name": "respond"},
     )
-
-    raw_text = response.content[0].text.strip()
-    if raw_text.startswith("```"):
-        raw_text = raw_text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
 
     if response.stop_reason == "max_tokens":
         logger.warning(
@@ -501,17 +740,21 @@ async def chat_turn(
             detail="AI response was truncated. Please try again.",
         )
 
-    try:
-        payload = json.loads(raw_text)
-    except json.JSONDecodeError as e:
+    tool_block = next(
+        (b for b in response.content if getattr(b, "type", None) == "tool_use"),
+        None,
+    )
+    if tool_block is None:
         logger.error(
-            "[ai_assistant] Invalid JSON from model. First 500 chars:\n%s",
-            raw_text[:500],
+            "[ai_assistant] No tool_use block in response. stop_reason=%s, content=%s",
+            response.stop_reason,
+            response.content,
         )
         raise HTTPException(
             status_code=502,
-            detail=f"AI returned invalid JSON: {e}",
+            detail="AI did not produce a structured response. Try again.",
         )
+    payload = tool_block.input or {}
 
     phase = payload.get("phase")
     if phase not in ("questioning", "proposing"):
@@ -540,11 +783,17 @@ async def chat_turn(
             detail="AI marked proposal phase but returned no proposal. Try again.",
         )
 
+    usage = response.usage
+    cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
+    cache_create = getattr(usage, "cache_creation_input_tokens", 0) or 0
     logger.info(
-        "[ai_assistant] turn ok: phase=%s in=%s out=%s",
+        "[ai_assistant] turn ok: model=%s phase=%s in=%s out=%s cache_read=%s cache_create=%s",
+        model,
         phase,
-        response.usage.input_tokens,
-        response.usage.output_tokens,
+        usage.input_tokens,
+        usage.output_tokens,
+        cache_read,
+        cache_create,
     )
     return ChatResponse(
         phase=phase,
@@ -563,12 +812,12 @@ async def _apply_categorization_additive(
 
     Only categorizes transactions that currently have no category. Existing
     categorizations (from rules or prior decisions) are preserved. New
-    categories are only created when needed to satisfy an uncategorized
-    transaction's assignment. Categories not in the proposal are left
-    untouched.
+    parent → child categories are created as needed, preserving the AI's
+    proposed hierarchy and `is_fixed` / `is_income` flags. Categories not
+    in the proposal are left untouched (no destructive merges).
     """
-    proposed = categorization.get("proposed_categories", []) or []
-    assignments = categorization.get("assignments", []) or []
+    proposed = categorization.get("proposed_categories") or []
+    assignments = categorization.get("assignments") or []
 
     cats = (
         await db.execute(select(Category).where(Category.user_id == user_id))
@@ -596,35 +845,91 @@ async def _apply_categorization_additive(
     if not uncategorized:
         return {"categories_created": 0, "transactions_updated": 0}
 
-    needed_names = {
-        a["category_name"].strip()
-        for a in assignments
-        if a.get("transaction_id") in uncategorized
-        and isinstance(a.get("category_name"), str)
-        and a["category_name"].strip()
-    }
+    needed_names: set[str] = set()
+    for a in assignments:
+        if a.get("transaction_id") not in uncategorized:
+            continue
+        name = a.get("category_name")
+        if isinstance(name, str) and name.strip():
+            needed_names.add(name.strip().lower())
+
+    parent_lookup: dict[str, dict[str, Any]] = {}
+    child_lookup: dict[str, dict[str, Any]] = {}
+    child_to_parent: dict[str, str] = {}
+    for p in proposed:
+        if not isinstance(p, dict):
+            continue
+        pname = (p.get("name") or "").strip()
+        if not pname:
+            continue
+        parent_lookup[pname.lower()] = p
+        for child in p.get("children") or []:
+            if not isinstance(child, dict):
+                continue
+            cname = (child.get("name") or "").strip()
+            if not cname:
+                continue
+            child_lookup[cname.lower()] = child
+            child_to_parent[cname.lower()] = pname.lower()
 
     categories_created = 0
-    for name in needed_names:
-        if name.lower() in cat_by_name:
+
+    # 1. Create needed top-level parents (parents referenced by assignments
+    # OR parents whose children are referenced).
+    needed_parents: set[str] = set()
+    for n in needed_names:
+        if n in parent_lookup:
+            needed_parents.add(n)
+        elif n in child_to_parent:
+            needed_parents.add(child_to_parent[n])
+
+    for pname_lower in needed_parents:
+        if pname_lower in cat_by_name:
             continue
-        meta = next(
-            (p for p in proposed if isinstance(p.get("name"), str)
-             and p["name"].strip().lower() == name.lower()),
-            None,
-        )
+        meta = parent_lookup.get(pname_lower, {})
         new_cat = Category(
             user_id=user_id,
-            name=name,
-            color=(meta or {}).get("color"),
-            is_income=bool((meta or {}).get("is_income", False)),
-            is_fixed=bool((meta or {}).get("is_fixed", False)),
+            name=meta.get("name") or pname_lower.title(),
+            color=meta.get("color"),
+            is_income=bool(meta.get("is_income", False)),
+            is_fixed=bool(meta.get("is_fixed", False)),
         )
         db.add(new_cat)
         await db.flush()
-        cat_by_name[name.lower()] = new_cat
+        cat_by_name[pname_lower] = new_cat
         categories_created += 1
 
+    # 2. Create needed child categories with parent_id wired up.
+    needed_children = {n for n in needed_names if n in child_lookup}
+    for cname_lower in needed_children:
+        if cname_lower in cat_by_name:
+            continue
+        child_meta = child_lookup[cname_lower]
+        parent_lower = child_to_parent[cname_lower]
+        parent_cat = cat_by_name.get(parent_lower)
+        if not parent_cat:
+            # Parent couldn't be created; fall back to top-level
+            parent_id = None
+            inherited_is_fixed = False
+            inherited_is_income = False
+        else:
+            parent_id = parent_cat.id
+            inherited_is_fixed = parent_cat.is_fixed
+            inherited_is_income = parent_cat.is_income
+        new_child = Category(
+            user_id=user_id,
+            name=child_meta.get("name") or cname_lower.title(),
+            parent_id=parent_id,
+            color=child_meta.get("color"),
+            is_income=bool(child_meta.get("is_income", inherited_is_income)),
+            is_fixed=bool(child_meta.get("is_fixed", inherited_is_fixed)),
+        )
+        db.add(new_child)
+        await db.flush()
+        cat_by_name[cname_lower] = new_child
+        categories_created += 1
+
+    # 3. Apply assignments to uncategorized transactions.
     txns_updated = 0
     for a in assignments:
         txn = uncategorized.get(a.get("transaction_id"))

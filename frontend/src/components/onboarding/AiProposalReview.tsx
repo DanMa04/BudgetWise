@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, ChevronDown, ChevronRight, Sparkles } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, MessageCircle, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useAiAssistantApply } from "@/hooks/useAiAssistant";
@@ -10,6 +10,10 @@ interface Props {
   summary: string;
   onApplied: () => void;
   onBack: () => void;
+  /** Send free-form feedback back to the assistant for a revised proposal. */
+  onRequestChanges: (feedback: string) => void;
+  /** True while the assistant is processing the feedback turn. */
+  changesPending?: boolean;
 }
 
 export function AiProposalReview({
@@ -17,6 +21,8 @@ export function AiProposalReview({
   summary,
   onApplied,
   onBack,
+  onRequestChanges,
+  changesPending = false,
 }: Props) {
   const apply = useAiAssistantApply();
   const [openSections, setOpenSections] = useState({
@@ -24,6 +30,16 @@ export function AiProposalReview({
     goals: true,
     budget: true,
   });
+  const [showChangesInput, setShowChangesInput] = useState(false);
+  const [changesText, setChangesText] = useState("");
+
+  function handleSendChanges() {
+    const trimmed = changesText.trim();
+    if (!trimmed || changesPending) return;
+    setChangesText("");
+    setShowChangesInput(false);
+    onRequestChanges(trimmed);
+  }
 
   const proposedCats = Array.isArray(
     (proposal.categorization as { proposed_categories?: unknown[] })
@@ -166,23 +182,96 @@ export function AiProposalReview({
         <p className="text-sm text-destructive">{apply.error.message}</p>
       )}
 
-      <div className="flex justify-between">
-        <Button variant="ghost" onClick={onBack} disabled={apply.isPending}>
+      {showChangesInput && (
+        <div className="space-y-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3 dark:border-indigo-800 dark:bg-indigo-950/40">
+          <p className="text-xs font-medium text-indigo-900 dark:text-indigo-100">
+            Tell the assistant what to change. Examples: "lower housing to
+            $1,800", "merge groceries and dining into food", "add more
+            subcategories under shopping".
+          </p>
+          <textarea
+            value={changesText}
+            onChange={(e) => setChangesText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                handleSendChanges();
+              }
+            }}
+            placeholder="What should the assistant adjust?"
+            rows={3}
+            disabled={changesPending}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setShowChangesInput(false);
+                setChangesText("");
+              }}
+              disabled={changesPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSendChanges}
+              disabled={!changesText.trim() || changesPending}
+            >
+              {changesPending ? (
+                <>
+                  <Spinner className="mr-2 h-3.5 w-3.5" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 h-3.5 w-3.5" />
+                  Send changes
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Button
+          variant="ghost"
+          onClick={onBack}
+          disabled={apply.isPending || changesPending}
+        >
           Back
         </Button>
-        <Button onClick={handleApply} disabled={apply.isPending}>
-          {apply.isPending ? (
-            <>
-              <Spinner className="mr-2 h-3.5 w-3.5" />
-              Applying...
-            </>
-          ) : (
-            <>
-              <Check className="mr-2 h-4 w-4" />
-              Approve & Apply
-            </>
+        <div className="flex gap-2">
+          {!showChangesInput && (
+            <Button
+              variant="outline"
+              onClick={() => setShowChangesInput(true)}
+              disabled={apply.isPending || changesPending}
+            >
+              <MessageCircle className="mr-2 h-4 w-4" />
+              Request changes
+            </Button>
           )}
-        </Button>
+          <Button
+            onClick={handleApply}
+            disabled={apply.isPending || changesPending}
+          >
+            {apply.isPending ? (
+              <>
+                <Spinner className="mr-2 h-3.5 w-3.5" />
+                Applying...
+              </>
+            ) : (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                Approve & Apply
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );

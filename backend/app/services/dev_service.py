@@ -4,6 +4,7 @@ These endpoints are user-scoped (only ever affect the current user's data) but
 the actions are destructive — surface them in the UI as such.
 """
 
+import os
 import uuid
 from decimal import Decimal
 
@@ -24,7 +25,7 @@ from app.models.plaid_item import PlaidItem
 from app.models.transaction import Transaction
 from app.models.transfer_rule import TransferRule
 from app.models.user import User
-from app.services.categorization_service import seed_default_rules
+from app.services.categorization_service import _model_path, seed_default_rules
 from app.services.category_service import seed_default_categories
 from app.services.onboarding_service import reset as reset_onboarding
 
@@ -89,6 +90,16 @@ async def wipe_all_data(db: AsyncSession, user: User) -> dict[str, int]:
     ).rowcount or 0
 
     await db.flush()
+
+    # Delete the trained ML model file if it exists — otherwise the model
+    # holds stale category IDs and rescans hit FK violations.
+    model_path = _model_path(user_id)
+    try:
+        if os.path.exists(model_path):
+            os.remove(model_path)
+            counts["ml_model"] = 1
+    except OSError:
+        pass
 
     # Reset user-scoped state on the user row.
     user.monthly_income_override = None
