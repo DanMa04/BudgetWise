@@ -128,7 +128,7 @@ export function AiProposalReview({
       </Section>
 
       <Section
-        title={`Zero-based budget — $${income.toLocaleString()}/mo`}
+        title={`Budget — $${income.toLocaleString()}/mo`}
         open={openSections.budget}
         onToggle={() => toggle("budget")}
       >

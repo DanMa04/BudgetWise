@@ -74,7 +74,7 @@ export function ZeroBudgetDialog({ open, onClose }: ZeroBudgetDialogProps) {
         className="max-h-[90vh] max-w-5xl overflow-y-auto"
       >
         <DialogHeader>
-          <DialogTitle>Zero-Based Budget</DialogTitle>
+          <DialogTitle>Budget</DialogTitle>
         </DialogHeader>
 
         {isLoading ? (

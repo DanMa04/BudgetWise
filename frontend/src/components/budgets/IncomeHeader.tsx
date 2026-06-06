@@ -93,7 +93,7 @@ export function IncomeHeader({
         ) : allAllocated ? (
           <div className="flex items-center gap-1.5 rounded-md bg-green-100 px-3 py-1 text-sm font-medium text-green-700 dark:bg-green-950/40 dark:text-green-400">
             <CheckCircle2 className="h-4 w-4" />
-            Every dollar has a job!
+            Fully allocated
           </div>
         ) : (
           <div className="text-sm">

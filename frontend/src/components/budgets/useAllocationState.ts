@@ -77,7 +77,144 @@ function getEffectiveLockInfo(items: AllocationItem[]) {
   return { parentItemIds, lockedParentIds, isEffectivelyLocked };
 }
 
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/**
+ * Goal-first redistribution.
+ *
+ * When the user adjusts a CATEGORY:
+ *   - Reducing it: the freed amount is spread evenly to unlocked goals so
+ *     funds preferentially become savings rather than other discretionary
+ *     spend.
+ *   - Increasing it: if the new total stays at or under income, the
+ *     change just eats into the unallocated pool. Goals are untouched.
+ *     Only when the increase would push total > income do we pull the
+ *     overflow proportionally from unlocked goals.
+ *
+ * When the user adjusts a GOAL, we fall back to the original symmetric
+ * redistribution across unlocked siblings — they're directly managing
+ * the goal so the goal-protection rule doesn't apply.
+ */
 function redistribute(
+  items: AllocationItem[],
+  changedId: string,
+  newAmount: number,
+  income: number
+): AllocationItem[] {
+  const { isEffectivelyLocked } = getEffectiveLockInfo(items);
+  const changedItem = items.find((it) => it.id === changedId);
+  if (!changedItem) return items;
+
+  if (changedItem.type === "goal") {
+    return redistributeSymmetric(items, changedId, newAmount, income);
+  }
+
+  const unlockedGoals = items.filter(
+    (it) => it.type === "goal" && !isEffectivelyLocked(it)
+  );
+  const goalsCapacity = unlockedGoals.reduce((s, g) => s + g.amount, 0);
+
+  // Clamp upper bound to: income + everything we could reclaim from
+  // unlocked goals. If the user tries to go above that, the budget would
+  // be over even with all goals zeroed — so we just refuse the extra.
+  const otherTotal = items.reduce(
+    (s, it) => (it.id === changedId ? s : s + it.amount),
+    0
+  );
+  const upperBound = Math.max(0, income - (otherTotal - goalsCapacity));
+  const clamped = Math.max(0, Math.min(newAmount, upperBound));
+
+  const delta = clamped - changedItem.amount;
+  if (Math.abs(delta) < 0.005) {
+    return items.map((it) =>
+      it.id === changedId ? { ...it, amount: clamped } : it
+    );
+  }
+
+  if (delta < 0) {
+    // Reduction → spread freed funds evenly across unlocked goals.
+    if (unlockedGoals.length === 0) {
+      // No goals — freed amount becomes unallocated.
+      return items.map((it) =>
+        it.id === changedId ? { ...it, amount: clamped } : it
+      );
+    }
+    const freed = -delta;
+    const perGoal = round2(freed / unlockedGoals.length);
+    const goalIds = new Set(unlockedGoals.map((g) => g.id));
+    // Apply a residual to the last goal so the math sums exactly.
+    const residual = round2(freed - perGoal * unlockedGoals.length);
+    const lastGoalId = unlockedGoals[unlockedGoals.length - 1].id;
+    return items.map((it) => {
+      if (it.id === changedId) return { ...it, amount: clamped };
+      if (!goalIds.has(it.id)) return it;
+      const add = perGoal + (it.id === lastGoalId ? residual : 0);
+      return { ...it, amount: round2(it.amount + add) };
+    });
+  }
+
+  // Increase. Compute whether it fits within unallocated headroom.
+  const newTotal = otherTotal + clamped;
+  if (newTotal <= income + 0.005) {
+    // Plenty of room — just set it, unallocated absorbs the change.
+    return items.map((it) =>
+      it.id === changedId ? { ...it, amount: clamped } : it
+    );
+  }
+
+  // Overflow — pull proportionally from unlocked goals.
+  const overflow = newTotal - income;
+  if (unlockedGoals.length === 0 || goalsCapacity <= 0) {
+    // No goals available to pull from. Allow the over-budget state so
+    // the UI's "over budget" indicator can flag it.
+    return items.map((it) =>
+      it.id === changedId ? { ...it, amount: clamped } : it
+    );
+  }
+  const totalGoalAmount = goalsCapacity;
+  const goalDeltas = new Map<string, number>();
+  let absorbed = 0;
+  for (const goal of unlockedGoals) {
+    const share = (goal.amount / totalGoalAmount) * overflow;
+    const reduction = Math.min(goal.amount, share);
+    goalDeltas.set(goal.id, reduction);
+    absorbed += reduction;
+  }
+  // Any residual (due to a goal being clamped at 0) gets pulled from
+  // remaining goals with capacity.
+  let remaining = round2(overflow - absorbed);
+  while (remaining > 0.005) {
+    const withCapacity = unlockedGoals.filter(
+      (g) => g.amount - (goalDeltas.get(g.id) ?? 0) > 0.005
+    );
+    if (withCapacity.length === 0) break;
+    const each = remaining / withCapacity.length;
+    for (const g of withCapacity) {
+      const already = goalDeltas.get(g.id) ?? 0;
+      const cap = g.amount - already;
+      const take = Math.min(each, cap);
+      goalDeltas.set(g.id, already + take);
+      remaining = round2(remaining - take);
+    }
+  }
+  return items.map((it) => {
+    if (it.id === changedId) return { ...it, amount: clamped };
+    if (goalDeltas.has(it.id)) {
+      const reduced = round2(it.amount - (goalDeltas.get(it.id) ?? 0));
+      return { ...it, amount: Math.max(0, reduced) };
+    }
+    return it;
+  });
+}
+
+/**
+ * Original symmetric redistribution. Used when the user directly adjusts
+ * a goal — in that case we preserve the prior behavior of spreading the
+ * delta proportionally across unlocked siblings.
+ */
+function redistributeSymmetric(
   items: AllocationItem[],
   changedId: string,
   newAmount: number,

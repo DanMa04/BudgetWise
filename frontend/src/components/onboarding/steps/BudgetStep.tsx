@@ -20,8 +20,8 @@ export function BudgetStep({ state, onContinue, onBack, onSkip }: Props) {
       <div>
         <h3 className="text-lg font-semibold">Build your budget</h3>
         <p className="text-sm text-muted-foreground">
-          Allocate every dollar of income — to spending categories or goal
-          contributions — until nothing is left over.
+          Allocate your income across spending categories and goal
+          contributions.
         </p>
       </div>
 
@@ -39,7 +39,7 @@ export function BudgetStep({ state, onContinue, onBack, onSkip }: Props) {
 
       <Button onClick={() => setShowDialog(true)} className="w-full">
         <PieChart className="mr-2 h-4 w-4" />
-        Open Zero-Based Budget
+        Open Budget
       </Button>
 
       <div className="flex justify-between">

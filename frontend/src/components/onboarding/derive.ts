@@ -24,7 +24,7 @@ export const STEP_DESCRIPTIONS: Record<OnboardingStepKey, string> = {
   transactions_imported: "Pull in your transactions to see your real activity.",
   transactions_categorized: "Sort recent activity into categories you understand.",
   goals_created: "Tell us what you're saving for so we can track progress.",
-  budget_created: "Plan where every dollar goes with a zero-based budget.",
+  budget_created: "Plan how your income is allocated each month.",
 };
 
 export function currentStep(state: OnboardingState): OnboardingStepKey | null {
