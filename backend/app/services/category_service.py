@@ -67,6 +67,81 @@ async def seed_default_categories(db: AsyncSession, user_id: uuid.UUID) -> list[
     return categories
 
 
+# Curated palette of visually distinct colors used for auto-assignment
+# when a category is created without an explicit color (e.g., AI proposals
+# that omit `color`, or budget allocations the AI invents on the fly).
+# Order roughly cycles around the color wheel to maximize neighbor contrast.
+COLOR_PALETTE = [
+    "#4F46E5", "#16A34A", "#EA580C", "#0891B2", "#9333EA",
+    "#E11D48", "#CA8A04", "#2563EB", "#7C3AED", "#DB2777",
+    "#6366F1", "#0D9488", "#F59E0B", "#3B82F6", "#0F766E",
+    "#059669", "#10B981", "#14B8A6", "#22C55E", "#A855F7",
+    "#F97316", "#06B6D4", "#84CC16", "#EC4899", "#8B5CF6",
+    "#EF4444", "#65A30D", "#0EA5E9", "#D946EF", "#F43F5E",
+]
+
+
+def pick_distinct_color(used_colors: set[str]) -> str:
+    """Return a palette color not currently in use; fall back to a
+    deterministic HSL-spread color if the palette is exhausted."""
+    normalized = {c.lower() for c in used_colors if c}
+    for color in COLOR_PALETTE:
+        if color.lower() not in normalized:
+            return color
+    # Palette exhausted — spread by golden-angle hue rotation.
+    import colorsys
+
+    hue = (len(normalized) * 137.508) % 360 / 360.0
+    r, g, b = colorsys.hls_to_rgb(hue, 0.5, 0.65)
+    return f"#{int(r * 255):02X}{int(g * 255):02X}{int(b * 255):02X}"
+
+
+async def fetch_used_colors(db: AsyncSession, user_id: uuid.UUID) -> set[str]:
+    """Return the set of colors currently assigned to the user's active
+    categories — used to avoid picking a color already in use."""
+    result = await db.execute(
+        select(Category.color).where(
+            Category.user_id == user_id,
+            Category.color.isnot(None),
+        )
+    )
+    return {c for (c,) in result.all() if c}
+
+
+async def backfill_missing_colors(db: AsyncSession, user_id: uuid.UUID) -> int:
+    """Assign palette colors to any of the user's categories that currently
+    have NULL color or share a color with another category. Returns the
+    number of categories updated."""
+    result = await db.execute(
+        select(Category).where(Category.user_id == user_id)
+    )
+    cats = list(result.scalars().all())
+
+    used_colors: set[str] = set()
+    color_counts: dict[str, int] = {}
+    for c in cats:
+        if c.color:
+            color_counts[c.color] = color_counts.get(c.color, 0) + 1
+
+    updated = 0
+    for c in cats:
+        needs_fix = not c.color or (c.color and color_counts.get(c.color, 0) > 1)
+        if not needs_fix:
+            used_colors.add(c.color)
+            continue
+        if c.color:
+            # We're reassigning a duplicate — release the old color so
+            # only one occurrence keeps it.
+            color_counts[c.color] -= 1
+        new_color = pick_distinct_color(used_colors)
+        c.color = new_color
+        used_colors.add(new_color)
+        updated += 1
+    if updated:
+        await db.flush()
+    return updated
+
+
 async def ensure_p2p_categories(db: AsyncSession, user_id: uuid.UUID) -> None:
     """Seed P2P categories for existing users who don't have them yet."""
     result = await db.execute(

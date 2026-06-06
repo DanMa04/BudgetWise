@@ -12,7 +12,11 @@ export const GridCard = forwardRef<HTMLDivElement, GridCardProps>(
   function GridCard({ editing, children, className, style, ...rest }, ref) {
     return (
       <div ref={ref} style={style} className={className} {...rest}>
-        <Card className="h-full overflow-hidden flex flex-col">
+        {/* `overflow-visible` on both wrappers lets chart tooltips render
+            on top of adjacent cards instead of being clipped at the card
+            edge. The drag handle still works because react-grid-layout
+            positions absolutely. */}
+        <Card className="h-full overflow-visible flex flex-col">
           {editing && (
             <div className="grid-drag-handle flex items-center justify-center border-b bg-muted/30 py-1">
               <svg
@@ -36,7 +40,7 @@ export const GridCard = forwardRef<HTMLDivElement, GridCardProps>(
               </svg>
             </div>
           )}
-          <div className="flex-1 overflow-auto">{children}</div>
+          <div className="flex-1 overflow-visible">{children}</div>
         </Card>
       </div>
     );

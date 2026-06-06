@@ -1,4 +1,5 @@
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -59,8 +60,14 @@ function Dialog({
   open: boolean;
   children: React.ReactNode;
 }) {
+  // Portal into document.body so the dialog escapes any ancestor
+  // containing block (e.g., another dialog with `transform` or
+  // `overflow-y-auto`). Without this, dialogs opened from inside the
+  // OnboardingWizard get clipped/mispositioned relative to the wizard
+  // instead of the viewport.
   if (!open) return null;
-  return <>{children}</>;
+  if (typeof document === "undefined") return null;
+  return createPortal(<>{children}</>, document.body);
 }
 
 function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {

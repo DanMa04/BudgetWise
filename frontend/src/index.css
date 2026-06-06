@@ -150,6 +150,13 @@
   filter: saturate(0.82);
 }
 
+/* Lift Recharts tooltips above adjacent dashboard cards so the popover
+   detail isn't obscured when it extends beyond its own chart's bounds. */
+.recharts-tooltip-wrapper {
+  z-index: 50 !important;
+  pointer-events: none;
+}
+
 /* ---- Water background blob animations ----------------------------------- */
 /* Each blob has a unique drift path with 7–8 waypoints for a Brownian feel.  */
 @keyframes blob-drift-1 {

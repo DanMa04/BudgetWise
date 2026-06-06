@@ -40,6 +40,7 @@ from app.schemas.goal import GoalCreate
 from app.services import (
     budget_service,
     categorization_service,
+    category_service,
     goal_service,
 )
 from app.services.snapshot_service import create_snapshot
@@ -330,7 +331,28 @@ When you have enough to propose:
   If the user hasn't given you a target, either ask one more question to get
   it, or omit the goal from the proposal entirely. Never emit a goal with
   `target_amount: null`.
-- Budget allocations + goal contributions should sum to `monthly_income` (zero-based).
+
+# Zero-based budget — MANDATORY math check
+- The budget MUST be truly zero-based:
+  `sum(allocations[*].amount) + sum(goal_contributions[*].monthly_amount)`
+  MUST equal `monthly_income` EXACTLY (within $1 rounding tolerance).
+- Before emitting your proposal, ADD UP your allocations and goal
+  contributions and verify the sum equals monthly_income. If it doesn't,
+  adjust the largest discretionary allocation (or add a "Savings Buffer"
+  goal contribution) until it does. Do NOT submit a proposal that leaves
+  unallocated dollars.
+- Allocate budget to EVERY spending category the user has — both the
+  EXISTING categories (rule-categorized) listed in "Existing categories"
+  that show transaction volume in the financial summary, AND any new
+  categories you propose. Don't omit existing categories from the budget
+  — they're real spending that needs a line.
+- For categories with predictable historical spend (rent, utilities,
+  subscriptions), use the actual monthly average from the summary.
+- For variable categories, use a slightly-above-average budget so the
+  user has headroom.
+- If income exceeds total observed expenses, route the surplus into goal
+  contributions (or a "Savings Buffer" goal if no specific goal is
+  appropriate) so the budget still balances to zero.
 - **Categorization is ADDITIVE only.** Transactions already categorized via
   the user's rules will keep their existing category — the apply step will
   not overwrite them. So `categorization.assignments` should ONLY include
@@ -598,6 +620,90 @@ def _build_context_prompt(
     )
 
 
+def _balance_budget(
+    budget: "ProposedBudget", goals: list["ProposedGoal"]
+) -> "ProposedBudget":
+    """Enforce zero-based math on an AI-proposed budget.
+
+    Any leftover (income - allocations - contributions) > $1 is absorbed
+    into a "Savings Buffer" goal contribution. Any overage > $1 is trimmed
+    from the largest non-locked allocation. Operations under $1 are ignored
+    as rounding noise.
+    """
+    income = float(budget.monthly_income or 0)
+    if income <= 0:
+        return budget
+
+    alloc_sum = sum(float(a.amount) for a in budget.allocations)
+    contrib_sum = sum(float(c.monthly_amount) for c in budget.goal_contributions)
+    leftover = income - alloc_sum - contrib_sum
+
+    if abs(leftover) < 1.0:
+        return budget
+
+    if leftover > 0:
+        # Route the surplus into goal contributions. Prefer an existing
+        # "Savings Buffer" contribution, else add one (requires a matching
+        # goal — append it to goals if it doesn't exist).
+        buffer_name = "Savings Buffer"
+        existing = next(
+            (
+                c
+                for c in budget.goal_contributions
+                if c.goal_name.lower() == buffer_name.lower()
+            ),
+            None,
+        )
+        if existing:
+            existing.monthly_amount = float(existing.monthly_amount) + leftover
+        else:
+            from app.schemas.ai_assistant import (
+                ProposedGoal,
+                ProposedGoalContribution,
+            )
+
+            goal_exists = any(g.name.lower() == buffer_name.lower() for g in goals)
+            if not goal_exists:
+                # Add a 12-month rolling target so the goal is valid; the
+                # user can adjust after import.
+                goals.append(
+                    ProposedGoal(
+                        name=buffer_name,
+                        goal_type="savings",
+                        target_amount=max(leftover * 12, 1.0),
+                        color="#10B981",
+                    )
+                )
+            budget.goal_contributions.append(
+                ProposedGoalContribution(
+                    goal_name=buffer_name, monthly_amount=leftover
+                )
+            )
+        logger.info(
+            "[ai_assistant] auto-balanced budget: routed $%.2f leftover to '%s'",
+            leftover,
+            buffer_name,
+        )
+    else:
+        # Overage — trim from the largest non-locked allocation, if any.
+        trimmable = [a for a in budget.allocations if not a.is_locked]
+        trimmable.sort(key=lambda a: float(a.amount), reverse=True)
+        remaining_overage = -leftover
+        for alloc in trimmable:
+            if remaining_overage <= 0:
+                break
+            cut = min(float(alloc.amount), remaining_overage)
+            alloc.amount = float(alloc.amount) - cut
+            remaining_overage -= cut
+        logger.info(
+            "[ai_assistant] auto-balanced budget: trimmed $%.2f overage from "
+            "discretionary allocations",
+            -leftover - remaining_overage,
+        )
+
+    return budget
+
+
 async def chat_turn(
     db: AsyncSession,
     user_id: uuid.UUID,
@@ -783,6 +889,11 @@ async def chat_turn(
             detail="AI marked proposal phase but returned no proposal. Try again.",
         )
 
+    # Auto-balance the budget so the proposal is truly zero-based, regardless
+    # of any small rounding error or omission from the model.
+    if proposal and proposal.budget:
+        proposal.budget = _balance_budget(proposal.budget, proposal.goals)
+
     usage = response.usage
     cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
     cache_create = getattr(usage, "cache_creation_input_tokens", 0) or 0
@@ -823,6 +934,7 @@ async def _apply_categorization_additive(
         await db.execute(select(Category).where(Category.user_id == user_id))
     ).scalars().all()
     cat_by_name: dict[str, Category] = {c.name.lower(): c for c in cats}
+    used_colors: set[str] = {c.color for c in cats if c.color}
 
     txn_ids = []
     for a in assignments:
@@ -887,10 +999,14 @@ async def _apply_categorization_additive(
         if pname_lower in cat_by_name:
             continue
         meta = parent_lookup.get(pname_lower, {})
+        color = meta.get("color")
+        if not color or color.lower() in {c.lower() for c in used_colors}:
+            color = category_service.pick_distinct_color(used_colors)
+        used_colors.add(color)
         new_cat = Category(
             user_id=user_id,
             name=meta.get("name") or pname_lower.title(),
-            color=meta.get("color"),
+            color=color,
             is_income=bool(meta.get("is_income", False)),
             is_fixed=bool(meta.get("is_fixed", False)),
         )
@@ -916,11 +1032,15 @@ async def _apply_categorization_additive(
             parent_id = parent_cat.id
             inherited_is_fixed = parent_cat.is_fixed
             inherited_is_income = parent_cat.is_income
+        color = child_meta.get("color")
+        if not color or color.lower() in {c.lower() for c in used_colors}:
+            color = category_service.pick_distinct_color(used_colors)
+        used_colors.add(color)
         new_child = Category(
             user_id=user_id,
             name=child_meta.get("name") or cname_lower.title(),
             parent_id=parent_id,
-            color=child_meta.get("color"),
+            color=color,
             is_income=bool(child_meta.get("is_income", inherited_is_income)),
             is_fixed=bool(child_meta.get("is_fixed", inherited_is_fixed)),
         )
@@ -1025,13 +1145,18 @@ async def apply_proposal(
     # instead of the existing "Housing" — auto-create rather than blocking.)
     allocations_saved = 0
     if proposal.budget:
+        # Refresh used-color set in case categorization step added new ones.
+        budget_used_colors = await category_service.fetch_used_colors(db, user_id)
         items: list[BulkBudgetItem] = []
         for a in proposal.budget.allocations:
             cat_id = cat_by_name.get(a.category_name.lower())
             if not cat_id:
+                color = category_service.pick_distinct_color(budget_used_colors)
+                budget_used_colors.add(color)
                 new_cat = Category(
                     user_id=user_id,
                     name=a.category_name,
+                    color=color,
                     is_income=False,
                     is_fixed=False,
                 )

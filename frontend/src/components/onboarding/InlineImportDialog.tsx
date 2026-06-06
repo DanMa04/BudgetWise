@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { createPortal } from "react-dom";
 import { FileUp } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -41,10 +40,8 @@ export function InlineImportDialog({
     onContinueAfterImport?.();
   }
 
-  // Portal into document.body so this dialog escapes the OnboardingWizard's
-  // transform/overflow ancestor — otherwise `position: fixed` is contained
-  // by the wizard and the wider import UI gets clipped by overflow.
-  return createPortal(
+  // Base Dialog portals to document.body for us — no manual portal needed.
+  return (
     <Dialog open={open}>
       <DialogContent
         onClose={onClose}
@@ -69,7 +66,6 @@ export function InlineImportDialog({
           </div>
         )}
       </DialogContent>
-    </Dialog>,
-    document.body
+    </Dialog>
   );
 }

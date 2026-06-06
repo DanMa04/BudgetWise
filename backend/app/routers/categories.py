@@ -100,15 +100,34 @@ async def create_category(
     if data.parent_id is not None:
         await validate_parent_assignment(db, current_user.id, None, data.parent_id)
 
+    from app.services import category_service
+
+    payload = data.model_dump()
+    color = payload.get("color")
+    used = await category_service.fetch_used_colors(db, current_user.id)
+    if not color or color.lower() in {c.lower() for c in used}:
+        payload["color"] = category_service.pick_distinct_color(used)
+
     category = Category(
         user_id=current_user.id,
         is_system=False,
-        **data.model_dump(),
+        **payload,
     )
     db.add(category)
     await db.flush()
     await db.refresh(category)
     return category
+
+
+@router.post("/backfill-colors")
+async def backfill_colors_endpoint(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services import category_service
+
+    updated = await category_service.backfill_missing_colors(db, current_user.id)
+    return {"updated": updated}
 
 
 @router.post("/merge", response_model=MergeCategoryResponse)
