@@ -6,12 +6,29 @@ import { GoalForm } from "@/components/goals/GoalForm";
 import { GoalDetail } from "@/components/goals/GoalDetail";
 import { DebtStrategyComparison } from "@/components/goals/DebtStrategyComparison";
 import { useGoals } from "@/hooks/useGoals";
-import type { GoalWithProgress } from "@/types/models";
+import type { Goal, GoalWithProgress } from "@/types/models";
 
 export function GoalsPage() {
   const { data: goals, isLoading } = useGoals();
   const [showForm, setShowForm] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
+
+  function openCreate() {
+    setEditingGoal(null);
+    setShowForm(true);
+  }
+
+  function closeForm() {
+    setShowForm(false);
+    setEditingGoal(null);
+  }
+
+  function startEdit(goal: Goal) {
+    setSelectedGoalId(null);
+    setEditingGoal(goal);
+    setShowForm(true);
+  }
 
   return (
     <div className="space-y-6">
@@ -22,7 +39,7 @@ export function GoalsPage() {
             Track your savings, debt payoff, and investment goals.
           </p>
         </div>
-        <Button onClick={() => setShowForm(true)}>Create Goal</Button>
+        <Button onClick={openCreate}>Create Goal</Button>
       </div>
 
       <GoalSummaryCards />
@@ -51,7 +68,7 @@ export function GoalsPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Create your first savings goal to get started!
           </p>
-          <Button className="mt-4" onClick={() => setShowForm(true)}>
+          <Button className="mt-4" onClick={openCreate}>
             Create Goal
           </Button>
         </div>
@@ -59,13 +76,21 @@ export function GoalsPage() {
 
       <DebtStrategyComparison />
 
-      <GoalForm open={showForm} onClose={() => setShowForm(false)} />
+      <GoalForm
+        open={showForm}
+        onClose={closeForm}
+        goal={editingGoal ?? undefined}
+      />
 
       {selectedGoalId && (
         <GoalDetail
           goalId={selectedGoalId}
           open={!!selectedGoalId}
           onClose={() => setSelectedGoalId(null)}
+          onEdit={() => {
+            const goal = goals?.find((g) => g.id === selectedGoalId);
+            if (goal) startEdit(goal);
+          }}
         />
       )}
     </div>

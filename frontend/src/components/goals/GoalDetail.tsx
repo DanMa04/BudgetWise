@@ -31,9 +31,15 @@ interface GoalDetailProps {
   goalId: string;
   open: boolean;
   onClose: () => void;
+  onEdit?: () => void;
 }
 
-export function GoalDetail({ goalId, open, onClose }: GoalDetailProps) {
+export function GoalDetail({
+  goalId,
+  open,
+  onClose,
+  onEdit,
+}: GoalDetailProps) {
   const { data: goal, isLoading } = useGoal(goalId);
   const { data: contributions } = useContributions(goalId);
   const { data: accounts } = useAccounts();
@@ -260,9 +266,9 @@ export function GoalDetail({ goalId, open, onClose }: GoalDetailProps) {
               </div>
             )}
 
-            <div className="border-t pt-4">
+            <div className="flex items-center justify-between border-t pt-4">
               {confirmDelete ? (
-                <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
+                <div className="flex w-full items-center justify-between rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
                   <p className="text-sm text-red-600">Delete this goal?</p>
                   <div className="flex gap-2">
                     <Button
@@ -285,14 +291,21 @@ export function GoalDetail({ goalId, open, onClose }: GoalDetailProps) {
                   </div>
                 </div>
               ) : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
-                  onClick={() => setConfirmDelete(true)}
-                >
-                  Delete Goal
-                </Button>
+                <>
+                  {onEdit && (
+                    <Button variant="outline" size="sm" onClick={onEdit}>
+                      Edit Goal
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                    onClick={() => setConfirmDelete(true)}
+                  >
+                    Delete Goal
+                  </Button>
+                </>
               )}
             </div>
           </div>

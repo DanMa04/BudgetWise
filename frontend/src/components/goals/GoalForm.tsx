@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useCreateGoal } from "@/hooks/useGoals";
+import { useCreateGoal, useUpdateGoal } from "@/hooks/useGoals";
 import { useAccounts } from "@/hooks/useAccounts";
 import type { Goal } from "@/types/models";
 
@@ -59,7 +59,22 @@ export function GoalForm({ goal, open, onClose }: GoalFormProps) {
   );
 
   const createGoal = useCreateGoal();
+  const updateGoal = useUpdateGoal();
   const { data: accounts } = useAccounts();
+
+  // Re-seed form state when the dialog opens or the target goal changes,
+  // so reopening with a different goal (or for create) doesn't keep stale
+  // values from a previous edit.
+  useEffect(() => {
+    if (!open) return;
+    setName(goal?.name ?? "");
+    setGoalType(goal?.goal_type ?? "savings");
+    setTargetAmount(goal?.target_amount?.toString() ?? "");
+    setCurrentAmount(goal?.current_amount?.toString() ?? "0");
+    setColor(goal?.color ?? PRESET_COLORS[0]);
+    setTargetDate(goal?.target_date ?? "");
+    setLinkedAccountId(goal?.linked_account_id ?? "");
+  }, [open, goal]);
 
   const allowedTypes = ACCOUNT_TYPE_FILTER[goalType];
   const filteredAccounts = accounts?.filter((a) =>
@@ -77,19 +92,33 @@ export function GoalForm({ goal, open, onClose }: GoalFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createGoal.mutate(
-      {
-        name,
-        goal_type: goalType,
-        target_amount: parseFloat(targetAmount),
-        current_amount: parseFloat(currentAmount) || 0,
-        color,
-        target_date: targetDate || undefined,
-        linked_account_id: linkedAccountId || undefined,
-      },
-      { onSuccess: onClose }
-    );
+    const payload = {
+      name,
+      goal_type: goalType,
+      target_amount: parseFloat(targetAmount),
+      current_amount: parseFloat(currentAmount) || 0,
+      color,
+      target_date: targetDate || undefined,
+      linked_account_id: linkedAccountId || undefined,
+    };
+    if (goal) {
+      updateGoal.mutate(
+        { id: goal.id, data: payload },
+        { onSuccess: onClose },
+      );
+    } else {
+      createGoal.mutate(payload, { onSuccess: onClose });
+    }
   };
+
+  const submitPending = createGoal.isPending || updateGoal.isPending;
+  const submitLabel = goal
+    ? updateGoal.isPending
+      ? "Saving..."
+      : "Save Changes"
+    : createGoal.isPending
+      ? "Creating..."
+      : "Create Goal";
 
   const isDebtGoal = goalType === "debt_payoff";
 
@@ -214,8 +243,8 @@ export function GoalForm({ goal, open, onClose }: GoalFormProps) {
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={createGoal.isPending}>
-              {createGoal.isPending ? "Creating..." : "Create Goal"}
+            <Button type="submit" disabled={submitPending}>
+              {submitLabel}
             </Button>
           </DialogFooter>
         </form>
