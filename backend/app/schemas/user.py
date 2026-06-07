@@ -15,6 +15,7 @@ class UserRead(BaseModel):
     timezone: str
     plan: Plan
     onboarding_state: dict[str, Any]
+    community_rules_enabled: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -26,3 +27,4 @@ class UserUpdate(BaseModel):
     timezone: str | None = None
     # TODO: gate behind billing — currently any user can self-promote.
     plan: Plan | None = None
+    community_rules_enabled: bool | None = None

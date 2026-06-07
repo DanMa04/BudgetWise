@@ -18,6 +18,14 @@ class Settings(BaseSettings):
     # Anthropic API
     anthropic_api_key: str = ""
 
+    # Community rule learning — cross-user rule promotion.
+    # Threshold: minimum distinct users that must contribute the same
+    # (merchant, category) correction before it gets promoted to a rule.
+    community_rule_min_users: int = 5
+    # PII safety: salt for hashing user IDs in the signal log. Must be set
+    # in production. If empty, signal recording is disabled (fail-closed).
+    community_rule_salt: str = ""
+
     # Database pool settings (only apply to PostgreSQL)
     db_pool_size: int = 10
     db_max_overflow: int = 20

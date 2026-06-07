@@ -4,9 +4,10 @@ import { Switch } from "@/components/ui/switch";
 import { useTheme } from "@/context/ThemeContext";
 import { useExtensionConnection } from "@/hooks/useExtensionConnection";
 import { useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, Users } from "lucide-react";
 import { useResetOnboarding } from "@/hooks/useOnboarding";
 import { useResetBudget, useWipeAllData } from "@/hooks/useDev";
+import { useBackendUser, useUpdateBackendUser } from "@/hooks/useBackendUser";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -264,6 +265,74 @@ function ExtensionCard() {
   );
 }
 
+function PrivacyLearningCard() {
+  const { data: user, isLoading } = useBackendUser();
+  const update = useUpdateBackendUser();
+  const enabled = user?.community_rules_enabled ?? true;
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="rounded-xl border border-white/8 bg-card/65 p-6 backdrop-blur-xl">
+      <div className="flex items-center gap-2">
+        <Users className="h-4 w-4 text-indigo-500" />
+        <h2 className="font-semibold">Community rule learning</h2>
+      </div>
+      <p className="mt-0.5 text-sm text-muted-foreground">
+        Help Kallio's categorization improve for everyone when enough users
+        correct the same merchant the same way.
+      </p>
+
+      <div className="mt-4 flex items-center justify-between gap-4">
+        <p className="text-sm font-medium">
+          Contribute &amp; receive community rules
+        </p>
+        <Switch
+          checked={enabled}
+          disabled={isLoading || update.isPending}
+          onCheckedChange={(checked) =>
+            update.mutate({ community_rules_enabled: checked })
+          }
+        />
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="mt-3 flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        aria-expanded={open}
+      >
+        {open ? (
+          <ChevronDown className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5" />
+        )}
+        How this works &amp; what's stored
+      </button>
+
+      {open && (
+        <div className="mt-2 space-y-2 rounded-md border bg-muted/30 p-3">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">When on:</span>{" "}
+            your manual corrections contribute to anonymous, aggregate
+            signals. Kallio only learns from cleaned merchant names (no
+            descriptions, no account details, no amounts) and only when at
+            least 5 different users agree on the same standard category.
+            We never store your user ID alongside any pattern — only a
+            one-way hash used to dedupe. You also automatically receive
+            any community rules already promoted.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">When off:</span>{" "}
+            no signals are recorded from your account and no community
+            rules are added to your rule set. You can still create rules
+            manually.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SettingsPage() {
   const { theme, setTheme } = useTheme();
 
@@ -295,6 +364,8 @@ export function SettingsPage() {
       <ExtensionCard />
 
       <NotificationPreferences />
+
+      <PrivacyLearningCard />
 
       <OnboardingResetCard />
 

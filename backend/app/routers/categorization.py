@@ -240,3 +240,20 @@ async def apply_subscription(
     )
     await db.commit()
     return {"updated": count}
+
+
+@router.post("/community-rules/promote")
+async def promote_community_rules(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Aggregate cross-user correction signals and promote any pattern
+    that has crossed the threshold into rules for opted-in users.
+
+    Authenticated for now; intended to be invoked by a scheduled job
+    (cron, Cloud Scheduler, GitHub Action) once daily in production.
+    """
+    from app.services import community_rules_service
+
+    result = await community_rules_service.aggregate_and_promote(db)
+    return result

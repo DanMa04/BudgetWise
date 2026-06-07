@@ -26,6 +26,9 @@ class User(Base):
     onboarding_state: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
     )
+    community_rules_enabled: Mapped[bool] = mapped_column(
+        nullable=False, default=True, server_default=text("true")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

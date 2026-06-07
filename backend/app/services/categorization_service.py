@@ -171,18 +171,37 @@ async def record_correction(
     transaction.category_source = "manual"
     transaction.category_confidence = 1.0
 
+    cleaned_pattern = TransactionCategorizer.clean_description(transaction.description)
+
     if create_rule:
         rule = CategorizationRule(
             user_id=user_id,
             category_id=new_category_id,
             rule_type="merchant",
-            pattern=TransactionCategorizer.clean_description(transaction.description),
+            pattern=cleaned_pattern,
             priority=10,
             created_by="user",
         )
         db.add(rule)
 
     await db.flush()
+
+    # Record a cross-user learning signal (PII-safe; hashed user id, only
+    # whitelist categories, normalized merchant token). Best-effort — if
+    # the salt isn't configured or the user opted out, this is a no-op.
+    from app.models.user import User as _User
+    from app.services import community_rules_service
+
+    user_obj = await db.get(_User, user_id)
+    target_cat = await db.get(Category, new_category_id)
+    if user_obj and target_cat:
+        try:
+            await community_rules_service.record_signal(
+                db, user_obj, cleaned_pattern, target_cat.name
+            )
+        except Exception:
+            # Never let signal recording block a user-visible correction.
+            pass
 
     # Check if retrain threshold reached
     count_result = await db.execute(

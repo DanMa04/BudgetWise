@@ -28,9 +28,24 @@ async def update_me(
     db: AsyncSession = Depends(get_db),
 ):
     update_data = data.model_dump(exclude_unset=True)
+    was_enabled = current_user.community_rules_enabled
     for key, value in update_data.items():
         setattr(current_user, key, value)
     await db.flush()
+
+    # If the user just opted INTO community rules, backfill any rules
+    # already promoted so they benefit immediately.
+    if (
+        update_data.get("community_rules_enabled") is True
+        and not was_enabled
+    ):
+        from app.services import community_rules_service
+
+        try:
+            await community_rules_service.seed_community_rules(db, current_user.id)
+        except Exception:
+            pass
+
     await db.refresh(current_user)
     return current_user
 

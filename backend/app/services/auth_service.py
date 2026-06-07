@@ -58,4 +58,12 @@ async def get_or_create_user(
         await seed_default_categories(db, user.id)
         await seed_default_rules(db, user.id)
 
+        # Seed any community-promoted rules so new users benefit on day 1.
+        from app.services import community_rules_service
+
+        try:
+            await community_rules_service.seed_community_rules(db, user.id)
+        except Exception:
+            pass
+
     return user

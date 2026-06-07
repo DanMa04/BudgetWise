@@ -679,6 +679,28 @@ export interface InvestmentProjectionResponse {
   balance_30y: number;
 }
 
+// Backend user (distinct from Clerk user)
+
+export interface BackendUser {
+  id: string;
+  email: string | null;
+  display_name: string | null;
+  currency_code: string;
+  timezone: string;
+  plan: "basic" | "pro";
+  onboarding_state: Record<string, unknown>;
+  community_rules_enabled: boolean;
+  created_at: string;
+}
+
+export interface BackendUserUpdate {
+  display_name?: string | null;
+  currency_code?: string | null;
+  timezone?: string | null;
+  plan?: "basic" | "pro" | null;
+  community_rules_enabled?: boolean | null;
+}
+
 // Onboarding
 
 export type Plan = "basic" | "pro";

@@ -4,6 +4,8 @@ from app.models.categorization_rule import CategorizationRule
 from app.models.category import Category
 from app.models.category_merge_history import CategoryMergeHistory
 from app.models.category_snapshot import CategorySnapshot
+from app.models.community_correction import CommunityCorrection
+from app.models.community_promotion import CommunityPromotion
 from app.models.extension_token import ExtensionToken
 from app.models.goal import Goal
 from app.models.goal_contribution import GoalContribution
@@ -21,6 +23,8 @@ __all__ = [
     "CategoryMergeHistory",
     "CategorySnapshot",
     "CategorizationRule",
+    "CommunityCorrection",
+    "CommunityPromotion",
     "Account",
     "Transaction",
     "TransferRule",
